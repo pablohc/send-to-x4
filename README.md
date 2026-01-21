@@ -4,6 +4,12 @@ A Chrome extension to send long-form articles from the web directly to your **Xt
 
 > Status: **Stable (v1.0.0)** — Tested with Xteink X4
 
+![Send to X4 Demo](media/demo.gif)
+
+<p align="center">
+  <img src="media/screenshot_popup.png" alt="Extension Popup" width="300">
+</p>
+
 ---
 
 ## What is this?
