@@ -9,6 +9,10 @@ A Chrome extension to send long-form articles from the web directly to your **Xt
   <img src="media/screenshot_popup.png" alt="Extension Popup" width="300">
 </p>
 
+<p align="center">
+  <img src="media/infographic.jpg" alt="How Send to X4 Works" width="600">
+</p>
+
 ---
 
 ## What is this?
