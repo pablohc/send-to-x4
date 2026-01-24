@@ -3,6 +3,9 @@
  * Handles EPUB generation, X4 upload, and download fallback
  */
 
+// Cross-browser compatibility
+const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
+
 // Import required modules (paths relative to service worker location in src/background/)
 importScripts(
     '../epub/jszip.min.js',
@@ -16,7 +19,7 @@ importScripts(
 console.log('[X4 Service Worker] Initialized');
 
 // Message handler
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+browserAPI.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'X4_SEND_ARTICLE') {
         handleSendArticle(message.payload, sender, sendResponse);
         return true; // Keep channel open for async response
@@ -73,7 +76,7 @@ async function handleDownloadArticle(article, sendResponse) {
  */
 async function sendStatusUpdate(tabId, status, message) {
     try {
-        await chrome.tabs.sendMessage(tabId, {
+        await browserAPI.tabs.sendMessage(tabId, {
             type: 'X4_STATUS_UPDATE',
             status: status,
             message: message
@@ -142,29 +145,56 @@ async function handleSendArticle(article, sender, sendResponse) {
 
 /**
  * Download EPUB as fallback
- * Service workers can't use URL.createObjectURL, so we use data URL
+ * Chrome MV3 service workers: Use data URL (can't use createObjectURL)
+ * Firefox MV3 service workers: Use Blob URL (data URLs blocked for security)
  */
 async function downloadEpubFallback(arrayBuffer, filename) {
     try {
         console.log('[X4 SW] Triggering download fallback...');
 
-        // Convert ArrayBuffer to base64 data URL
-        const bytes = new Uint8Array(arrayBuffer);
-        let binary = '';
-        for (let i = 0; i < bytes.length; i++) {
-            binary += String.fromCharCode(bytes[i]);
-        }
-        const base64 = btoa(binary);
-        const dataUrl = `data:application/epub+zip;base64,${base64}`;
+        // Detect if we're in Firefox (has 'browser' namespace) or Chrome
+        const isFirefox = typeof browser !== 'undefined' && typeof browser.runtime !== 'undefined';
+        console.log('[X4 SW] Browser detected:', isFirefox ? 'Firefox' : 'Chrome');
 
-        // Trigger download using data URL
-        await chrome.downloads.download({
-            url: dataUrl,
+        let downloadUrl;
+
+        if (isFirefox) {
+            // Firefox: Use Blob URL (works in MV3 service workers)
+            console.log('[X4 SW] Using Blob URL for Firefox...');
+            const blob = new Blob([arrayBuffer], { type: 'application/epub+zip' });
+            downloadUrl = URL.createObjectURL(blob);
+            console.log('[X4 SW] Blob URL created:', downloadUrl);
+        } else {
+            // Chrome: Use data URL (works in service workers)
+            console.log('[X4 SW] Converting to data URL for Chrome...');
+            const bytes = new Uint8Array(arrayBuffer);
+            let binary = '';
+            for (let i = 0; i < bytes.length; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            const base64 = btoa(binary);
+            downloadUrl = `data:application/epub+zip;base64,${base64}`;
+            console.log('[X4 SW] Data URL length:', downloadUrl.length);
+        }
+
+        // Trigger download
+        console.log('[X4 SW] Calling browserAPI.downloads.download...');
+        const downloadId = await browserAPI.downloads.download({
+            url: downloadUrl,
             filename: filename,
             saveAs: false
         });
 
-        console.log('[X4 SW] Download triggered:', filename);
+        console.log('[X4 SW] Download triggered successfully, ID:', downloadId);
+
+        // Clean up Blob URL after download starts (Firefox only)
+        if (isFirefox) {
+            // Give the download a moment to start before revoking
+            setTimeout(() => {
+                URL.revokeObjectURL(downloadUrl);
+                console.log('[X4 SW] Blob URL revoked');
+            }, 1000);
+        }
     } catch (error) {
         console.error('[X4 SW] Download failed:', error);
         throw error;

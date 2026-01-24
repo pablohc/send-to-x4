@@ -45,5 +45,14 @@
     "16": "assets/icon16.png",
     "48": "assets/icon48.png",
     "128": "assets/icon128.png"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "send-to-x4@xatpy.dev",
+      "strict_min_version": "128.0",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
+    }
   }
 }

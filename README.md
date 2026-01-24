@@ -1,8 +1,10 @@
 # Send to X4
 
-A Chrome extension to send long-form articles from the web directly to your **Xteink X4** e-ink reader as clean EPUB files.
+A browser extension to send long-form articles from the web directly to your **Xteink X4** e-ink reader as clean EPUB files.
 
 > Status: **Stable (v1.0.0)** — Tested with Xteink X4
+>
+> Supports: **Chrome** • **Firefox** • **Edge**
 
 
 <p align="center">
@@ -36,11 +38,20 @@ It is designed for people who:
 
 ## Installation
 
-1. Open Chrome and go to `chrome://extensions/`
+### Chrome / Edge
+
+1. Open Chrome/Edge and go to `chrome://extensions/` or `edge://extensions/`
 2. Enable **Developer mode** (toggle in the top-right corner)
 3. Click **Load unpacked**
 4. Select the `send-to-x4` folder
 5. Pin the extension for easy access
+
+### Firefox Desktop
+
+1. Open Firefox and go to `about:debugging#/runtime/this-firefox`
+2. Click **Load Temporary Add-on**
+3. Navigate to the `send-to-x4` folder and select `manifest.json`
+4. The extension will remain loaded until you restart Firefox
 
 ---
 
@@ -54,8 +65,8 @@ It is designed for people who:
 2. **Connect to X4**  
    Switch your computer's WiFi to the Xteink X4 hotspot.
 
-3. **Open the extension**  
-   Click the **Send to X4** icon in the Chrome toolbar.
+3. **Open the extension**
+   Click the **Send to X4** icon in the browser toolbar.
 
 4. **Send**  
    Click **Send to X4** to upload the EPUB, or **Download** to save it locally.
@@ -130,7 +141,7 @@ All communication happens locally over the device hotspot.
 - Retry the send after confirming the page loads
 
 ### "Extension context invalidated"
-- Reload the extension from `chrome://extensions/`
+- Reload the extension from the browser's extension page
 - Reload the article page while on internet WiFi
 - Switch back to the X4 hotspot and try again
 

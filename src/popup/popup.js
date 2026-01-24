@@ -3,6 +3,9 @@
  * Handles article detection, sending, and device status
  */
 
+// Cross-browser compatibility (Firefox uses 'browser', Chrome uses 'chrome')
+const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
+
 const Popup = {
     // X4 device endpoints
     X4_URL: 'http://192.168.3.3',
@@ -58,7 +61,7 @@ const Popup = {
      */
     async checkArticle() {
         try {
-            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            const [tab] = await browserAPI.tabs.query({ active: true, currentWindow: true });
 
             if (!tab || !tab.id) {
                 this.showArticleNotFound();
@@ -69,7 +72,7 @@ const Popup = {
 
             // First, inject Readability into the page
             try {
-                await chrome.scripting.executeScript({
+                await browserAPI.scripting.executeScript({
                     target: { tabId: tab.id },
                     files: ['src/content/readability.min.js']
                 });
@@ -79,7 +82,7 @@ const Popup = {
             }
 
             // Now execute extraction
-            const results = await chrome.scripting.executeScript({
+            const results = await browserAPI.scripting.executeScript({
                 target: { tabId: tab.id },
                 func: extractArticle
             });
@@ -271,7 +274,7 @@ const Popup = {
         this.setSendButtonState('sending');
 
         try {
-            const response = await chrome.runtime.sendMessage({
+            const response = await browserAPI.runtime.sendMessage({
                 type: 'X4_SEND_ARTICLE',
                 payload: {
                     kind: 'generic_article',
@@ -307,23 +310,28 @@ const Popup = {
      * Handle download button - download EPUB locally
      */
     async handleDownload() {
-        if (!this.articleData) return;
+        if (!this.articleData) {
+            console.error('[X4 Popup] No article data available');
+            return;
+        }
 
         console.log('[X4 Popup] Downloading article:', this.articleData.title);
         this.setDownloadButtonState('downloading');
 
         try {
-            const response = await chrome.runtime.sendMessage({
+            const payload = {
+                kind: 'generic_article',
+                title: this.articleData.title,
+                author: this.articleData.author,
+                date: this.articleData.date,
+                body: this.articleData.body,
+                url: this.articleData.sourceUrl,
+                rawText: this.articleData.rawText
+            };
+
+            const response = await browserAPI.runtime.sendMessage({
                 type: 'X4_DOWNLOAD_ARTICLE',
-                payload: {
-                    kind: 'generic_article',
-                    title: this.articleData.title,
-                    author: this.articleData.author,
-                    date: this.articleData.date,
-                    body: this.articleData.body,
-                    url: this.articleData.sourceUrl,
-                    rawText: this.articleData.rawText
-                }
+                payload: payload
             });
 
             console.log('[X4 Popup] Download response:', response);
