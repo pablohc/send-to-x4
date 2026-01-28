@@ -10,7 +10,9 @@ importScripts(
     '../utils/sanitize.js',
     '../epub/epub_templates.js',
     '../epub/epub_builder.js',
-    '../upload/x4_upload_tab.js'
+    '../upload/x4_upload_tab.js',
+    '../upload/crosspoint_upload.js',
+    '../utils/settings.js'
 );
 
 console.log('[X4 Service Worker] Initialized');
@@ -18,7 +20,7 @@ console.log('[X4 Service Worker] Initialized');
 // Message handler
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'X4_SEND_ARTICLE') {
-        handleSendArticle(message.payload, sender, sendResponse);
+        handleSendArticle(message, sender, sendResponse);
         return true; // Keep channel open for async response
     }
 
@@ -87,9 +89,12 @@ async function sendStatusUpdate(tabId, status, message) {
  * Handle send article request
  * Strategy: Try upload first, download as fallback
  */
-async function handleSendArticle(article, sender, sendResponse) {
+async function handleSendArticle(messageData, sender, sendResponse) {
+    const article = messageData.payload;
+    const settings = messageData.settings || {};
     const tabId = sender.tab?.id;
     console.log('[X4 SW] Handling send article:', article.title);
+    console.log('[X4 SW] Settings:', settings);
 
     try {
         // Step 1: Generate EPUB
@@ -102,11 +107,15 @@ async function handleSendArticle(article, sender, sendResponse) {
 
         console.log('[X4 SW] EPUB generated:', filename, 'size:', arrayBuffer.byteLength);
 
-        // Step 2: Try direct upload to X4 (no reachability check - just try it)
-        if (tabId) await sendStatusUpdate(tabId, 'uploading', 'Sending to X4...');
-        console.log('[X4 SW] Attempting direct upload to X4...');
+        // Step 2: Choose uploader based on settings
+        const uploader = settings.useCrosspointFirmware ? CrossPointUpload : X4UploadTab;
+        const apiName = settings.useCrosspointFirmware ? 'CrossPoint' : 'standard X4';
 
-        const uploadResult = await X4UploadTab.uploadEpub(arrayBuffer, filename);
+        // Step 3: Try direct upload to X4 (no reachability check - just try it)
+        if (tabId) await sendStatusUpdate(tabId, 'uploading', 'Sending to X4...');
+        console.log(`[X4 SW] Attempting direct upload using ${apiName} API...`);
+
+        const uploadResult = await uploader.uploadEpub(arrayBuffer, filename);
         console.log('[X4 SW] Upload result:', uploadResult);
 
         if (uploadResult.success) {
