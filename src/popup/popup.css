@@ -378,10 +378,43 @@ body {
 }
 
 /* Settings Section */
+.section-header.clickable {
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.2s ease;
+}
+
+.section-header.clickable:hover {
+    color: #e4e4e7;
+}
+
+.toggle-icon {
+    margin-left: auto;
+    font-size: 10px;
+    transition: transform 0.3s ease;
+}
+
+.toggle-icon.rotated {
+    transform: rotate(-180deg);
+}
+
 .settings-content {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, margin-top 0.3s ease;
+    max-height: 500px;
+    /* Large enough to fit content */
+    opacity: 1;
+    overflow: hidden;
+}
+
+.settings-content.collapsed {
+    max-height: 0;
+    opacity: 0;
+    margin-top: 0;
+    padding-top: 0;
+    padding-bottom: 0;
 }
 
 .checkbox-label {

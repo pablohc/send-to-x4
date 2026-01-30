@@ -2,7 +2,7 @@
 
 A Chrome extension to send long-form articles from the web directly to your **Xteink X4** e-ink reader as clean EPUB files.
 
-> Status: **Stable (v1.0.0)** — Tested with Xteink X4
+> Status: **Stable (v1.1.0)** — Tested with Xteink X4
 
 
 <p align="center">

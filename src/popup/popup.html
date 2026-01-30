@@ -96,11 +96,12 @@
 
     <!-- Settings Section -->
     <section id="settings-section" class="section">
-      <div class="section-header">
+      <div id="settings-header" class="section-header clickable">
         <span class="section-icon">⚙️</span>
         <span class="section-title">Settings</span>
+        <span id="settings-toggle-icon" class="toggle-icon">▼</span>
       </div>
-      <div class="settings-content">
+      <div id="settings-content" class="settings-content collapsed">
         <label class="checkbox-label">
           <input type="checkbox" id="crosspoint-firmware-checkbox">
           <span>X4 is using CrossPoint firmware</span>
@@ -122,11 +123,12 @@
 
     <!-- Footer -->
     <footer class="popup-footer">
-      <a href="https://github.com/Xatpy/send-to-x4" target="_blank" class="footer-link">v1.0.0</a>
+      <a href="https://github.com/Xatpy/send-to-x4" target="_blank" class="footer-link">v1.1.0</a>
     </footer>
   </div>
 
-  <script src="popup.js"></script>
+  <script src="../utils/settings.js"></script>
+  <script type="module" src="modules/main.js"></script>
 </body>
 
 </html>
