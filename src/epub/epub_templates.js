@@ -106,6 +106,9 @@ ${coverItem}
       ? `<p class="meta">${metaParts.join(' • ')}</p>`
       : '';
 
+    // Convert HTML body to XHTML (properly close self-closing tags)
+    const xhtmlBody = this.htmlToXhtml(body);
+
     return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
@@ -149,7 +152,7 @@ ${coverItem}
   <h1>${this.escapeXml(title)}</h1>
   ${metaLine}
   <div class="content">
-    ${this.htmlToXhtml(body)}
+    ${xhtmlBody}
   </div>
 </body>
 </html>`;
@@ -157,7 +160,7 @@ ${coverItem}
 
   /**
    * Escape XML special characters
-   * @param {string} text 
+   * @param {string} text
    */
   escapeXml(text) {
     if (!text) return '';
@@ -173,7 +176,7 @@ ${coverItem}
 
   /**
    * Convert HTML to XHTML by properly closing self-closing tags
-   * @param {string} html 
+   * @param {string} html
    */
   htmlToXhtml(html) {
     if (!html) return '';
