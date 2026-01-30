@@ -1,3 +1,5 @@
+const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
+
 /**
  * Settings Manager
  * Handles persistent storage of extension settings
@@ -25,7 +27,7 @@ const Settings = {
      */
     async getFirmwareType() {
         try {
-            const result = await chrome.storage.sync.get([
+            const result = await browserAPI.storage.sync.get([
                 this.KEYS.FIRMWARE_TYPE,
                 this.KEYS.LEGACY_USE_CROSSPOINT
             ]);
@@ -53,7 +55,7 @@ const Settings = {
      */
     async setFirmwareType(type) {
         try {
-            await chrome.storage.sync.set({ [this.KEYS.FIRMWARE_TYPE]: type });
+            await browserAPI.storage.sync.set({ [this.KEYS.FIRMWARE_TYPE]: type });
             console.log('[Settings] Firmware type updated:', type);
         } catch (error) {
             console.error('[Settings] Error saving firmware type:', error);
@@ -69,7 +71,7 @@ const Settings = {
         try {
             const firmwareType = await this.getFirmwareType();
             const keys = [this.KEYS.STOCK_IP, this.KEYS.CROSSPOINT_IP];
-            const result = await chrome.storage.sync.get(keys);
+            const result = await browserAPI.storage.sync.get(keys);
 
             if (firmwareType === 'crosspoint') {
                 return result[this.KEYS.CROSSPOINT_IP] || this.DEFAULTS.CROSSPOINT_IP;
@@ -92,7 +94,7 @@ const Settings = {
             const firmwareType = await this.getFirmwareType();
             const key = firmwareType === 'crosspoint' ? this.KEYS.CROSSPOINT_IP : this.KEYS.STOCK_IP;
 
-            await chrome.storage.sync.set({ [key]: ip });
+            await browserAPI.storage.sync.set({ [key]: ip });
             console.log(`[Settings] IP updated for ${firmwareType}:`, ip);
         } catch (error) {
             console.error('[Settings] Error saving IP:', error);
@@ -106,7 +108,7 @@ const Settings = {
      */
     async getSettingsPanelOpen() {
         try {
-            const result = await chrome.storage.sync.get(this.KEYS.SETTINGS_PANEL_OPEN);
+            const result = await browserAPI.storage.sync.get(this.KEYS.SETTINGS_PANEL_OPEN);
             return result[this.KEYS.SETTINGS_PANEL_OPEN] || false;
         } catch (error) {
             return false;
@@ -120,7 +122,7 @@ const Settings = {
      */
     async setSettingsPanelOpen(isOpen) {
         try {
-            await chrome.storage.sync.set({ [this.KEYS.SETTINGS_PANEL_OPEN]: isOpen });
+            await browserAPI.storage.sync.set({ [this.KEYS.SETTINGS_PANEL_OPEN]: isOpen });
         } catch (error) {
             console.error('[Settings] Error saving panel state:', error);
         }
@@ -137,8 +139,8 @@ const Settings = {
             // Get correct IP based on type
             let deviceIp;
             const keys = [this.KEYS.STOCK_IP, this.KEYS.CROSSPOINT_IP];
-            const result = await chrome.storage.sync.get(keys);
-            const panelResult = await chrome.storage.sync.get(this.KEYS.SETTINGS_PANEL_OPEN);
+            const result = await browserAPI.storage.sync.get(keys);
+            const panelResult = await browserAPI.storage.sync.get(this.KEYS.SETTINGS_PANEL_OPEN);
 
             if (firmwareType === 'crosspoint') {
                 deviceIp = result[this.KEYS.CROSSPOINT_IP] || this.DEFAULTS.CROSSPOINT_IP;

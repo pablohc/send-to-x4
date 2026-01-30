@@ -1,5 +1,8 @@
 import { extractArticle } from './extraction_logic.js';
 
+// Cross-browser compatibility
+const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
+
 /**
  * Article Manager
  * Handles article detection and extraction via content scripts
@@ -15,7 +18,7 @@ export class ArticleManager {
      */
     async checkArticle() {
         try {
-            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            const [tab] = await browserAPI.tabs.query({ active: true, currentWindow: true });
 
             if (!tab || !tab.id) {
                 throw new Error('No active tab found');
@@ -32,7 +35,7 @@ export class ArticleManager {
             try {
                 // We inject it every time just in case. Content scripts usually run once but popup re-runs.
                 // However, executeScript files: [] runs immediately.
-                await chrome.scripting.executeScript({
+                await browserAPI.scripting.executeScript({
                     target: { tabId: tab.id },
                     files: ['src/content/readability.min.js']
                 });
@@ -43,7 +46,7 @@ export class ArticleManager {
             }
 
             // Now execute extraction logic
-            const results = await chrome.scripting.executeScript({
+            const results = await browserAPI.scripting.executeScript({
                 target: { tabId: tab.id },
                 func: extractArticle
             });
