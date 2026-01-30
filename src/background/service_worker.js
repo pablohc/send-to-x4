@@ -71,18 +71,29 @@ async function handleDownloadArticle(article, sendResponse) {
 }
 
 /**
- * Send status update to content script
+ * Send status update to popup
  */
-async function sendStatusUpdate(tabId, status, message) {
+async function sendStatusUpdate(sender, status, message) {
     try {
-        await chrome.tabs.sendMessage(tabId, {
+        // Send to runtime (reaches popup)
+        await chrome.runtime.sendMessage({
             type: 'X4_STATUS_UPDATE',
             status: status,
             message: message
         });
     } catch (e) {
-        console.log('[X4 SW] Could not send status update:', e.message);
+        // Ignore errors (popup might be closed)
+        // console.log('[X4 SW] internal message error:', e.message);
     }
+}
+
+async function logToPopup(message) {
+    try {
+        await chrome.runtime.sendMessage({
+            type: 'X4_DEBUG_LOG',
+            message: message
+        });
+    } catch (e) { /* ignore */ }
 }
 
 /**
@@ -97,50 +108,66 @@ async function handleSendArticle(messageData, sender, sendResponse) {
     console.log('[X4 SW] Settings:', settings);
 
     try {
+        await logToPopup(`Starting Send Article: ${article.title}`);
+
         // Step 1: Generate EPUB
-        if (tabId) await sendStatusUpdate(tabId, 'generating', 'Creating EPUB...');
-        console.log('[X4 SW] Generating EPUB...');
+        if (tabId) await sendStatusUpdate(sender, 'generating', 'Creating EPUB...');
+        await logToPopup('Generating EPUB...');
 
         const epubBlob = await EpubBuilder.build(article);
         const filename = EpubBuilder.generateFilename(article);
         const arrayBuffer = await EpubBuilder.blobToArrayBuffer(epubBlob);
 
-        console.log('[X4 SW] EPUB generated:', filename, 'size:', arrayBuffer.byteLength);
+        await logToPopup(`EPUB generated: ${filename} (${arrayBuffer.byteLength} bytes)`);
 
         // Step 2: Choose uploader based on settings
-        const uploader = settings.useCrosspointFirmware ? CrossPointUpload : X4UploadTab;
-        const apiName = settings.useCrosspointFirmware ? 'CrossPoint' : 'standard X4';
+        const isCrosspoint = settings.firmwareType === 'crosspoint';
+        const deviceIp = settings.deviceIp || (isCrosspoint ? '192.168.4.1' : '192.168.3.3');
 
-        // Step 3: Try direct upload to X4 (no reachability check - just try it)
-        if (tabId) await sendStatusUpdate(tabId, 'uploading', 'Sending to X4...');
-        console.log(`[X4 SW] Attempting direct upload using ${apiName} API...`);
+        const uploader = isCrosspoint ? CrossPointUpload : X4UploadTab;
+        const apiName = isCrosspoint ? 'CrossPoint' : 'standard X4';
+
+        await logToPopup(`Configuring ${apiName} with IP: ${deviceIp}`);
+
+        if (isCrosspoint) {
+            CrossPointUpload.setIp(deviceIp);
+        } else {
+            if (typeof X4UploadTab.setIp === 'function') {
+                X4UploadTab.setIp(deviceIp);
+            }
+        }
+
+        // Step 3: Upload
+        if (tabId) await sendStatusUpdate(sender, 'uploading', 'Sending to X4...');
+        await logToPopup(`Attempting upload to ${deviceIp}...`);
 
         const uploadResult = await uploader.uploadEpub(arrayBuffer, filename);
-        console.log('[X4 SW] Upload result:', uploadResult);
+        await logToPopup(`Upload result: ${JSON.stringify(uploadResult)}`);
 
         if (uploadResult.success) {
-            console.log('[X4 SW] Upload successful!');
+            await logToPopup('Upload successful!');
             sendResponse({
                 success: true,
-                message: '✅ Sent to X4!'
+                message: 'Sent to X4!'
             });
             return;
         }
 
-        // Step 3: Upload failed - trigger download as fallback
-        console.log('[X4 SW] Upload failed, downloading as fallback. Error:', uploadResult.error);
-        if (tabId) await sendStatusUpdate(tabId, 'downloading', 'Downloading (X4 upload failed)...');
+        // Step 3: Fallback
+        await logToPopup(`Upload failed (${uploadResult.error}), falling back to download.`);
+        if (tabId) await sendStatusUpdate(sender, 'downloading', 'Downloading (X4 upload failed)...');
 
         await downloadEpubFallback(arrayBuffer, filename);
 
         sendResponse({
-            success: true, // Still a success - user got the file
+            success: true,
             message: '📥 EPUB downloaded',
             downloadTriggered: true,
             uploadError: uploadResult.error
         });
 
     } catch (error) {
+        await logToPopup(`Error: ${error.message}`);
         console.error('[X4 SW] Error:', error);
         sendResponse({
             success: false,

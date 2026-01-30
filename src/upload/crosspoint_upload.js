@@ -9,11 +9,22 @@
  * - POST /delete - Delete file or folder
  */
 const CrossPointUpload = {
-    CROSSPOINT_URL: 'http://192.168.4.1',
-    UPLOAD_ENDPOINT: 'http://192.168.4.1/upload',
-    LIST_ENDPOINT: 'http://192.168.4.1/api/files',
-    MKDIR_ENDPOINT: 'http://192.168.4.1/mkdir',
-    DELETE_ENDPOINT: 'http://192.168.4.1/delete',
+    // CROSSPOINT_URL: 'http://192.168.4.1',
+    // UPLOAD_ENDPOINT: 'http://192.168.4.1/upload',
+    // LIST_ENDPOINT: 'http://192.168.4.1/api/files',
+    // MKDIR_ENDPOINT: 'http://192.168.4.1/mkdir',
+    // DELETE_ENDPOINT: 'http://192.168.4.1/delete',
+    // Default IP
+    ip: '192.168.4.1',
+
+    setIp(ip) {
+        this.ip = ip || '192.168.4.1';
+    },
+
+    get uploadEndpoint() { return `http://${this.ip}/upload`; },
+    get listEndpoint() { return `http://${this.ip}/api/files`; },
+    get mkdirEndpoint() { return `http://${this.ip}/mkdir`; },
+    get deleteEndpoint() { return `http://${this.ip}/delete`; },
     TARGET_FOLDER: 'send-to-x4',
 
     /**
@@ -74,14 +85,9 @@ const CrossPointUpload = {
         }
     },
 
-    /**
-     * Check if folder exists using GET /api/files endpoint
-     * @param {string} folderName
-     * @returns {Promise<boolean>}
-     */
     async folderExists(folderName) {
         try {
-            const response = await fetch(`${this.LIST_ENDPOINT}?path=/`, {
+            const response = await fetch(`${this.listEndpoint}?path=/`, {
                 method: 'GET'
             });
 
@@ -117,7 +123,7 @@ const CrossPointUpload = {
             formData.append('name', folderName);
             formData.append('path', '/');
 
-            const response = await fetch(this.MKDIR_ENDPOINT, {
+            const response = await fetch(this.mkdirEndpoint, {
                 method: 'POST',
                 body: formData
             });
@@ -156,28 +162,39 @@ const CrossPointUpload = {
             formData.append('file', file);
 
             // Add query parameter for path
-            const uploadUrl = `${this.UPLOAD_ENDPOINT}?path=${encodeURIComponent(path)}`;
+            const uploadUrl = `${this.uploadEndpoint}?path=${encodeURIComponent(path)}`;
 
-            console.log('[CrossPoint Upload] Sending POST to', uploadUrl);
+            // Create timeout controller (30s)
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-            const response = await fetch(uploadUrl, {
-                method: 'POST',
-                body: formData
-            });
+            console.log('[CrossPoint Upload] Sending POST with 30s timeout...');
 
-            console.log('[CrossPoint Upload] Response status:', response.status);
+            try {
+                const response = await fetch(uploadUrl, {
+                    method: 'POST',
+                    body: formData,
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
 
-            if (response.ok) {
-                const responseText = await response.text();
-                console.log('[CrossPoint Upload] Success! Response:', responseText);
-                return { success: true };
-            } else {
-                const errorText = await response.text();
-                console.error('[CrossPoint Upload] Error response:', errorText);
-                return {
-                    success: false,
-                    error: `Upload failed with status ${response.status}`
-                };
+                console.log('[CrossPoint Upload] Response status:', response.status);
+
+                if (response.ok) {
+                    const responseText = await response.text();
+                    console.log('[CrossPoint Upload] Success! Response:', responseText);
+                    return { success: true };
+                } else {
+                    const errorText = await response.text();
+                    console.error('[CrossPoint Upload] Error response:', errorText);
+                    return {
+                        success: false,
+                        error: `Upload failed with status ${response.status}`
+                    };
+                }
+            } catch (error) {
+                clearTimeout(timeoutId);
+                throw error;
             }
 
         } catch (error) {

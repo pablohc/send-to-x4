@@ -8,9 +8,15 @@
  * - POST /edit with name="data" - Upload file
  */
 const X4UploadTab = {
-    X4_URL: 'http://192.168.3.3',
-    UPLOAD_ENDPOINT: 'http://192.168.3.3/edit',
-    LIST_ENDPOINT: 'http://192.168.3.3/list',
+    // Default IP
+    ip: '192.168.3.3',
+
+    setIp(ip) {
+        this.ip = ip || '192.168.3.3';
+    },
+
+    get UPLOAD_ENDPOINT() { return `http://${this.ip}/edit`; },
+    get LIST_ENDPOINT() { return `http://${this.ip}/list`; },
     TARGET_FOLDER: 'send-to-x4',
 
     /**

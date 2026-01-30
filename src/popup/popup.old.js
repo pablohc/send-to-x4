@@ -9,11 +9,6 @@ const Popup = {
     X4_EDIT_URL: 'http://192.168.3.3/edit',
     X4_LIST_URL: 'http://192.168.3.3/list',
 
-    // CrossPoint firmware endpoints
-    CROSSPOINT_URL: 'http://192.168.4.1',
-    CROSSPOINT_LIST_URL: 'http://192.168.4.1/api/files',
-    CROSSPOINT_MKDIR_URL: 'http://192.168.4.1/mkdir',
-
     TARGET_FOLDER: 'send-to-x4',
 
     // DOM elements
@@ -24,7 +19,8 @@ const Popup = {
 
     // Current settings
     settings: {
-        useCrosspointFirmware: false
+        useCrosspointFirmware: false,
+        crosspointIp: '192.168.1.224'
     },
 
     async init() {
@@ -57,15 +53,23 @@ const Popup = {
             deviceFiles: document.getElementById('device-files'),
             fileCount: document.getElementById('file-count'),
             fileListItems: document.getElementById('file-list-items'),
-            crosspointCheckbox: document.getElementById('crosspoint-firmware-checkbox')
+            fileListItems: document.getElementById('file-list-items'),
+            crosspointCheckbox: document.getElementById('crosspoint-firmware-checkbox'),
+            crosspointIpContainer: document.getElementById('crosspoint-ip-container'),
+            crosspointIpInput: document.getElementById('crosspoint-ip'),
+            connectBtn: document.getElementById('connect-btn')
         };
     },
 
     async loadSettings() {
         try {
-            const result = await chrome.storage.sync.get('useCrosspointFirmware');
+            const result = await chrome.storage.sync.get(['useCrosspointFirmware', 'crosspointIp']);
             this.settings.useCrosspointFirmware = result.useCrosspointFirmware || false;
+            this.settings.crosspointIp = result.crosspointIp || '192.168.1.224';
+
             this.elements.crosspointCheckbox.checked = this.settings.useCrosspointFirmware;
+            this.elements.crosspointIpInput.value = this.settings.crosspointIp;
+
             console.log('[X4 Popup] Settings loaded:', this.settings);
         } catch (error) {
             console.error('[X4 Popup] Error loading settings:', error);
@@ -76,6 +80,8 @@ const Popup = {
         this.elements.sendBtn.addEventListener('click', () => this.handleSend());
         this.elements.downloadBtn.addEventListener('click', () => this.handleDownload());
         this.elements.crosspointCheckbox.addEventListener('change', (e) => this.handleSettingsChange(e));
+        this.elements.crosspointIpInput.addEventListener('change', (e) => this.handleIpChange(e));
+        this.elements.connectBtn.addEventListener('click', () => this.handleConnect());
     },
 
     async handleSettingsChange(event) {
@@ -89,6 +95,69 @@ const Popup = {
             await this.checkDevice();
         } catch (error) {
             console.error('[X4 Popup] Error saving settings:', error);
+        }
+    },
+
+    async handleIpChange(event) {
+        const newIp = event.target.value.trim();
+        if (!newIp) return;
+
+        try {
+            await chrome.storage.sync.set({ crosspointIp: newIp });
+            this.settings.crosspointIp = newIp;
+            console.log('[X4 Popup] IP saved:', newIp);
+        } catch (error) {
+            console.error('[X4 Popup] Error saving IP:', error);
+        }
+    },
+
+    async handleConnect() {
+        const newIp = this.elements.crosspointIpInput.value.trim();
+        if (!newIp) return;
+
+        // Save first
+        await this.handleIpChange({ target: { value: newIp } });
+
+        // Visual feedback
+        this.setConnectButtonState('loading');
+
+        // Force check
+        const connected = await this.checkDevice(true);
+
+        if (connected) {
+            this.setConnectButtonState('success');
+        } else {
+            this.setConnectButtonState('error');
+        }
+    },
+
+    setConnectButtonState(state) {
+        const btn = this.elements.connectBtn;
+        const iconSpan = btn.querySelector('.btn-icon');
+
+        btn.className = 'icon-btn'; // reset
+
+        switch (state) {
+            case 'loading':
+                btn.disabled = true;
+                iconSpan.innerHTML = '<div class="btn-spinner"></div>';
+                break;
+            case 'success':
+                btn.disabled = false;
+                btn.classList.add('success');
+                iconSpan.textContent = '✅';
+                setTimeout(() => this.setConnectButtonState('idle'), 2000);
+                break;
+            case 'error':
+                btn.disabled = false;
+                btn.classList.add('error');
+                iconSpan.textContent = '❌';
+                setTimeout(() => this.setConnectButtonState('idle'), 2000);
+                break;
+            default:
+                btn.disabled = false;
+                iconSpan.textContent = '🔄';
+                break;
         }
     },
 
@@ -166,10 +235,14 @@ const Popup = {
         this.elements.errorMessage.textContent = message;
     },
 
-    async checkDevice() {
+    async checkDevice(force = false) {
         try {
             const useCrosspoint = this.settings.useCrosspointFirmware;
-            const listUrl = useCrosspoint ? this.CROSSPOINT_LIST_URL : this.X4_LIST_URL;
+            // distinct logic for standard/crosspoint URLs 
+            const listUrl = useCrosspoint
+                ? `http://${this.settings.crosspointIp}/api/files`
+                : this.X4_LIST_URL;
+
             const listPath = useCrosspoint ? `${listUrl}?path=/` : `${listUrl}?dir=/`;
 
             console.log('[X4 Popup] Checking device with', useCrosspoint ? 'CrossPoint' : 'standard', 'API');
@@ -181,7 +254,7 @@ const Popup = {
 
             if (!response.ok) {
                 this.showDeviceDisconnected();
-                return;
+                return false;
             }
 
             const files = await response.json();
@@ -203,9 +276,12 @@ const Popup = {
                 this.showEmptyFileList();
             }
 
+            return true;
+
         } catch (error) {
             console.log('[X4 Popup] Device not reachable:', error.message);
             this.showDeviceDisconnected();
+            return false;
         }
     },
 
@@ -215,7 +291,8 @@ const Popup = {
             let listUrl, epubFiles;
 
             if (useCrosspoint) {
-                listUrl = `${this.CROSSPOINT_LIST_URL}?path=/${this.TARGET_FOLDER}`;
+                // Construct URL dynamically
+                listUrl = `http://${this.settings.crosspointIp}/api/files?path=/${this.TARGET_FOLDER}`;
                 const response = await fetch(listUrl);
                 const files = await response.json();
                 epubFiles = files.filter(f => !f.isDirectory && f.name.endsWith('.epub'));
@@ -241,7 +318,7 @@ const Popup = {
         // Update the displayed IP address
         const ipDisplay = this.elements.deviceConnected.querySelector('span:last-child');
         if (ipDisplay) {
-            const ip = useCrosspoint ? '192.168.4.1' : '192.168.3.3';
+            const ip = useCrosspoint ? this.settings.crosspointIp : '192.168.3.3';
             ipDisplay.textContent = `Connected to ${ip}`;
         }
     },
@@ -312,7 +389,8 @@ const Popup = {
             if (useCrosspoint) {
                 // CrossPoint API: POST /delete with type parameter
                 formData.append('type', 'file');
-                response = await fetch('http://192.168.4.1/delete', {
+                // response = await fetch('http://192.168.4.1/delete', {
+                response = await fetch(`http://${this.settings.crosspointIp}/delete`, {
                     method: 'POST',
                     body: formData
                 });
@@ -365,7 +443,8 @@ const Popup = {
                     rawText: this.articleData.rawText
                 },
                 settings: {
-                    useCrosspointFirmware: this.settings.useCrosspointFirmware
+                    useCrosspointFirmware: this.settings.useCrosspointFirmware,
+                    crosspointIp: this.settings.crosspointIp
                 }
             });
 

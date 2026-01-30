@@ -1,0 +1,176 @@
+/**
+ * File Manager
+ * Handles device communication (X4 standard and CrossPoint firmware)
+ */
+export class FileManager {
+    constructor() {
+        this.X4_URL = 'http://192.168.3.3';
+        this.X4_EDIT_URL = 'http://192.168.3.3/edit';
+        this.X4_LIST_URL = 'http://192.168.3.3/list';
+        this.TARGET_FOLDER = 'send-to-x4';
+    }
+
+    /**
+     * Check if device is reachable
+     * @param {Object} settings - { useCrosspointFirmware, crosspointIp }
+     * @returns {Promise<{connected: boolean, files: Array}>}
+     */
+    async checkDevice(settings) {
+        try {
+            const isCrosspoint = settings.firmwareType === 'crosspoint';
+            const ip = settings.deviceIp;
+
+            // Construct URL based on firmware type
+            const baseUrl = `http://${ip}`;
+
+            // CrossPoint uses /api/files, Stock uses /list
+            const listUrl = isCrosspoint
+                ? `${baseUrl}/api/files`
+                : `${baseUrl}/list`;
+
+            const listPath = isCrosspoint ? `${listUrl}?path=/` : `${listUrl}?dir=/`;
+
+            console.log('[File Manager] Checking device:', { type: settings.firmwareType, ip, url: listPath });
+
+            const response = await fetch(listPath, {
+                method: 'GET',
+                signal: AbortSignal.timeout(3000)
+            });
+
+            if (!response.ok) {
+                return { connected: false, files: [] };
+            }
+
+            const files = await response.json();
+            return { connected: true, files };
+
+        } catch (error) {
+            console.log('[File Manager] Device not reachable:', error.message);
+            return { connected: false, files: [], error: error.message };
+        }
+    }
+
+    /**
+     * Load files from the target folder
+     * @param {Object} settings 
+     * @param {string} sortOrder 'newest', 'oldest', 'name-asc', 'name-desc'
+     * @returns {Promise<Array>}
+     */
+    async loadFolderFiles(settings, sortOrder = 'newest') {
+        try {
+            const isCrosspoint = settings.firmwareType === 'crosspoint';
+            const ip = settings.deviceIp;
+            const baseUrl = `http://${ip}`;
+
+            let listUrl, epubFiles;
+
+            if (isCrosspoint) {
+                listUrl = `${baseUrl}/api/files?path=/${this.TARGET_FOLDER}`;
+                const response = await fetch(listUrl);
+                const files = await response.json();
+                epubFiles = files.filter(f => !f.isDirectory && f.name.endsWith('.epub'));
+            } else {
+                listUrl = `${baseUrl}/list?dir=/${this.TARGET_FOLDER}/`;
+                const response = await fetch(listUrl);
+                const files = await response.json();
+                epubFiles = files.filter(f => f.type === 'file' && f.name.endsWith('.epub'));
+            }
+
+            // Enrich with parsed date for sorting
+            epubFiles = epubFiles.map(f => ({
+                ...f,
+                parsedDate: this.parseDateFromFilename(f.name)
+            }));
+
+            // Sort
+            epubFiles.sort((a, b) => {
+                switch (sortOrder) {
+                    case 'newest':
+                        return b.parsedDate - a.parsedDate;
+                    case 'oldest':
+                        return a.parsedDate - b.parsedDate;
+                    case 'name-asc':
+                        return a.name.localeCompare(b.name);
+                    case 'name-desc':
+                        return b.name.localeCompare(a.name);
+                    default:
+                        return 0;
+                }
+            });
+
+            return epubFiles;
+        } catch (error) {
+            console.error('[File Manager] Error loading folder:', error);
+            return []; // Return empty on error (folder might not exist)
+        }
+    }
+
+    /**
+     * Parse date from filename format: "Author - YYYY-MM-DD - Title.epub"
+     * Returns timestamp (number)
+     */
+    parseDateFromFilename(filename) {
+        try {
+            // Match YYYY-MM-DD pattern
+            const match = filename.match(/(\d{4}-\d{2}-\d{2})/);
+            if (match) {
+                return new Date(match[1]).getTime();
+            }
+            return 0; // No date found, treat as very old
+        } catch (e) {
+            return 0;
+        }
+    }
+
+    /**
+     * Delete a file from the device
+     * @param {string} filename 
+     * @param {Object} settings 
+     * @returns {Promise<boolean>}
+     */
+    async deleteFile(filename, settings) {
+        try {
+            console.log('[File Manager] Deleting file:', filename);
+            const isCrosspoint = settings.firmwareType === 'crosspoint';
+            const ip = settings.deviceIp;
+            const fullPath = `/${this.TARGET_FOLDER}/${filename}`;
+            const formData = new FormData();
+            formData.append('path', fullPath);
+
+            let response;
+            if (isCrosspoint) {
+                // CrossPoint API
+                formData.append('type', 'file');
+                response = await fetch(`http://${ip}/delete`, {
+                    method: 'POST',
+                    body: formData
+                });
+            } else {
+                // Standard X4 API
+                response = await fetch(`http://${ip}/edit`, {
+                    method: 'DELETE',
+                    body: formData
+                });
+            }
+
+            if (response.ok) {
+                return true;
+            } else {
+                throw new Error(`Delete failed: ${response.status}`);
+            }
+
+        } catch (error) {
+            console.error('[File Manager] Delete error:', error);
+            throw error;
+        }
+    }
+
+    findTargetFolder(files, settings) {
+        const isCrosspoint = settings.firmwareType === 'crosspoint';
+        if (isCrosspoint) {
+            return files.find(f => f.isDirectory && f.name === this.TARGET_FOLDER);
+        } else {
+            return files.find(f => f.type === 'dir' && f.name === this.TARGET_FOLDER);
+        }
+    }
+}

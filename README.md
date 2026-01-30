@@ -2,7 +2,7 @@
 
 A Chrome extension to send long-form articles from the web directly to your **Xteink X4** e-ink reader as clean EPUB files.
 
-> Status: **Stable (v1.0.0)** — Tested with Xteink X4
+> Status: **Stable (v1.1.0)** — Tested with Xteink X4
 
 
 <p align="center">
@@ -29,123 +29,123 @@ It is designed for people who:
 ---
 
 ## Features
-
-- 📤 **Send to X4** — One-click conversion and upload to your Xteink X4
-- 📖 **Long-form article support** — Optimized for reading-oriented pages
-- 💾 **Offline-first & local** — No accounts, no servers, no tracking
-- 📥 **EPUB download fallback** — Keep a local copy if needed
-- 🗂️ **Basic file management** — List and delete files on the device
+  
+  - 📤 **Send to X4** — One-click conversion and upload to your Xteink X4
+  - 📖 **Long-form article support** — Optimized for reading-oriented pages
+  - 🧵 **Twitter/X Thread Support** — Captures full threads (original author only) and "Long Posts"
+  - 🤖 **CrossPoint Firmware Ready** — Supports both Stock and CrossPoint firmware with custom IPs
+  - 💾 **Offline-first & local** — No accounts, no servers, no tracking
+  - 📥 **EPUB download fallback** — Keep a local copy if needed
+  - 🗂️ **Advanced File Management** — View, sort, and delete files directly on the device
+  
+  ---
+  
+  ## Installation
+  
+  1. Open Chrome and go to `chrome://extensions/`
+  2. Enable **Developer mode** (toggle in the top-right corner)
+  3. Click **Load unpacked**
+  4. Select the `send-to-x4` folder
+  5. Pin the extension for easy access
+  
+  ---
+  
+  ## Usage
+  
+  ### Sending an Article
+  
+  1. **Load the article**  
+     Open a long-form article, reading-focused page, or Twitter thread while connected to the internet.
+  
+  2. **Connect to X4**  
+     Switch your computer's WiFi to the Xteink X4 hotspot.
+  
+  3. **Open the extension**  
+     Click the **Send to X4** icon in the Chrome toolbar.
+  
+  4. **Send**  
+     Click **Send to X4** to upload the EPUB, or **Download** to save it locally.
+  
+  ### Managing Device Files
+  
+  The extension now provides a full file manager for your X4:
+  - **View All Files**: Scrollable list of content on the device.
+  - **Sort**: Organize by **Date (Newest/Oldest)** or **Name (A-Z)**.
+  - **Delete**: Remove old files to free up space.
+  
+  ---
+  
+  ## Twitter/X Support
+  
+  Send to X4 has specialized logic for X.com:
+  - **Smart Thread Extractor**: Automatically detects threads and stitches together tweets from the *original author only*, filtering out noise.
+  - **Twitter Articles**: Full support for "Long Posts" / Notes.
+  - **Clean Output**: Formatted specifically for e-ink readability.
+  
+  ---
+  
+  ## Workflow (Important)
+  
+  Send to X4 works best as a simple two-step ritual:
+  
+  1. ✅ Load the article while connected to the internet  
+  2. ✅ Switch to the X4 WiFi hotspot  
+  3. ✅ Open the popup and send  
+  4. ❌ Do not refresh the page while connected to the X4 hotspot
+  
+  ---
+  
+  ## Technical Details
+  
+  - **Chrome Extension**: Manifest V3
+  - **Permissions**: `scripting`, `activeTab`, `downloads`, `tabs`, `storage`
+  - **Host Permissions**: `<all_urls>` (for images/updates), `http://192.168.3.3/*`, `http://192.168.4.1/*`
+  - **Article extraction**: Mozilla Readability.js + Custom Twitter Extractor
+  - **EPUB generation**: JSZip (in-browser) + XHTML Validation
+  - **Firmware Support**: Stock (192.168.3.3) & CrossPoint (192.168.4.1) + Custom IPs
+  
+  ---
+  
+  ## EPUB Output
+  
+  - **Filename**: `Title - Author - Source - Date.epub`
+  - **Location on X4**: `/send-to-x4/`
+  - **Content**: Clean XHTML with metadata (Title, Author, Source URL)
+  - **Images**: Disabled by default for X4 compatibility (codebase supports it)
+  
+  ---
+  
+  ## Troubleshooting
+  
+  ### "No article detected"
+  - The page must contain enough long-form text
+  - Try waiting a few seconds for dynamic pages to load
+  - Some highly dynamic sites may not extract well
+  
+  ### "Not connected to X4"
+  - Make sure you are connected to the X4 WiFi hotspot
+  - Check your **Settings** block in the popup to ensure the **IP Address** matches your device or firmware type.
+  - Open the device IP (e.g., `http://192.168.4.1/`) in your browser to verify connectivity.
+  
+  ### "Extension context invalidated"
+  - Reload the extension from `chrome://extensions/`
+  - Reload the article page while on internet WiFi
+  - Switch back to the X4 hotspot and try again
+  
+  ---
+  
+  ## Known Limitations
+  
+  - Text-only (images are temporarily disabled)
+  - Requires manual WiFi switching
+  - Works best on long-form, reading-oriented pages
+  - Not a read-later service or cloud sync tool
 
 ---
 
-## Installation
+## Acknowledgements
 
-1. Open Chrome and go to `chrome://extensions/`
-2. Enable **Developer mode** (toggle in the top-right corner)
-3. Click **Load unpacked**
-4. Select the `send-to-x4` folder
-5. Pin the extension for easy access
-
----
-
-## Usage
-
-### Sending an Article
-
-1. **Load the article**  
-   Open a long-form article or reading-focused page while connected to the internet.
-
-2. **Connect to X4**  
-   Switch your computer's WiFi to the Xteink X4 hotspot.
-
-3. **Open the extension**  
-   Click the **Send to X4** icon in the Chrome toolbar.
-
-4. **Send**  
-   Click **Send to X4** to upload the EPUB, or **Download** to save it locally.
-
----
-
-## Workflow (Important)
-
-Send to X4 works best as a simple two-step ritual:
-
-1. ✅ Load the article while connected to the internet  
-2. ✅ Switch to the X4 WiFi hotspot  
-3. ✅ Open the popup and send  
-4. ❌ Do not refresh the page while connected to the X4 hotspot
-
----
-
-## Managing Files on the Device
-
-When connected to the X4 hotspot, the extension popup shows:
-
-- **Connection status** — Green indicator when the device is reachable
-- **File list** — Recent files stored on the device
-- **Delete option** — Remove files directly from the X4
-
----
-
-## X4 Device API (for developers)
-
-The extension communicates with the Xteink X4 using its local HTTP interface:
-
-| Endpoint | Method | Purpose |
-|--------|--------|--------|
-| `/list?dir=/` | GET | List directory contents |
-| `/edit` | POST | Upload file |
-| `/edit` | PUT | Create folder |
-| `/edit` | DELETE | Delete file |
-
-All communication happens locally over the device hotspot.
-
----
-
-## Technical Details
-
-- **Chrome Extension**: Manifest V3
-- **Permissions**: `scripting`, `activeTab`, `downloads`, `tabs`
-- **Host Permissions**: `http://192.168.3.3/*`
-- **Article extraction**: Mozilla Readability.js
-- **EPUB generation**: JSZip (in-browser)
-
----
-
-## EPUB Output
-
-- **Filename**: `Author - YYYY-MM-DD - Title.epub`
-- **Location on X4**: `/send-to-x4/`
-- **Content**: Clean text with title and basic metadata
-- **Images**: Not included (text-focused by design)
-
----
-
-## Troubleshooting
-
-### "No article detected"
-- The page must contain enough long-form text
-- Try waiting a few seconds for dynamic pages to load
-- Some highly dynamic sites may not extract well
-
-### "Not connected to X4"
-- Make sure you are connected to the X4 WiFi hotspot
-- Open `http://192.168.3.3/` in your browser to verify connectivity
-- Retry the send after confirming the page loads
-
-### "Extension context invalidated"
-- Reload the extension from `chrome://extensions/`
-- Reload the article page while on internet WiFi
-- Switch back to the X4 hotspot and try again
-
----
-
-## Known Limitations
-
-- Text-only (images are not included)
-- Requires manual WiFi switching
-- Works best on long-form, reading-oriented pages
-- Not a read-later service or cloud sync tool
+- **[borisfaure](https://github.com/borisfaure)** — For implementing CrossPoint firmware support ([PR #2](https://github.com/Xatpy/send-to-x4/pull/2))
 
 ---
 
