@@ -4,19 +4,30 @@
  */
 
 // Cross-browser compatibility
-const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
+// Cross-browser compatibility
+// browserAPI is defined in settings.js, which is loaded before this script in manifest.json
+// const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
 
 // Import required modules (paths relative to service worker location in src/background/)
-importScripts(
-    '../epub/jszip.min.js',
-    '../utils/logger.js',
-    '../utils/sanitize.js',
-    '../epub/epub_templates.js',
-    '../epub/epub_builder.js',
-    '../upload/x4_upload_tab.js',
-    '../upload/crosspoint_upload.js',
-    '../utils/settings.js'
-);
+// Import required modules
+// Note: In Firefox 'scripts' (Background Page), these are loaded via manifest.json.
+// In Chrome 'service_worker', importScripts works and is required.
+if (typeof importScripts === 'function') {
+    try {
+        importScripts(
+            '../epub/jszip.min.js',
+            '../utils/logger.js',
+            '../utils/sanitize.js',
+            '../epub/epub_templates.js',
+            '../epub/epub_builder.js',
+            '../upload/x4_upload_tab.js',
+            '../upload/crosspoint_upload.js',
+            '../utils/settings.js'
+        );
+    } catch (e) {
+        console.error('[X4 SW] importScripts failed:', e);
+    }
+}
 
 console.log('[X4 Service Worker] Initialized');
 
@@ -41,7 +52,108 @@ browserAPI.runtime.onMessage.addListener((message, sender, sendResponse) => {
             }));
         return true;
     }
+
+    if (message.type === 'X4_FETCH') {
+        handleFetch(message.payload)
+            .then(result => sendResponse(result))
+            .catch(error => sendResponse({
+                success: false,
+                error: error.message
+            }));
+        return true;
+    }
 });
+
+/**
+ * Handle fetch proxy (to bypass CORS/Mixed Content in popup)
+ */
+async function handleFetch(payload) {
+    const { url, options } = payload;
+    console.log('[X4 SW] Proxy fetch:', url, options?.method || 'GET');
+
+    // Firefox Fallback: Use XMLHttpRequest to bypass potential Mixed Content/Fetch quirks
+    if (typeof XMLHttpRequest !== 'undefined') {
+        console.log('[X4 SW] Using XMLHttpRequest (Firefox compat mode)');
+        return new Promise((resolve) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open(options?.method || 'GET', url, true);
+
+            // Set headers
+            if (options?.headers) {
+                for (const [key, value] of Object.entries(options.headers)) {
+                    xhr.setRequestHeader(key, value);
+                }
+            }
+
+            xhr.onload = function () {
+                const success = xhr.status >= 200 && xhr.status < 300;
+                // Parse body logic simplified
+                let data = xhr.responseText;
+                try {
+                    data = JSON.parse(data);
+                } catch (e) {
+                    // Start is not JSON, keep as text
+                }
+
+                resolve({
+                    success: success,
+                    status: xhr.status,
+                    statusText: xhr.statusText,
+                    data: data
+                });
+            };
+
+            xhr.onerror = function () {
+                console.error('[X4 SW] XHR Error');
+                resolve({
+                    success: false,
+                    error: 'Network Request Failed (XHR)'
+                });
+            };
+
+            xhr.ontimeout = function () {
+                resolve({
+                    success: false,
+                    error: 'Timeout'
+                });
+            };
+
+            if (options?.body) {
+                xhr.send(options.body);
+            } else {
+                xhr.send();
+            }
+        });
+    }
+
+    // Chrome / Service Worker: Use fetch
+    try {
+        const response = await fetch(url, options);
+
+        // We need to read the body to send it back
+        const contentType = response.headers.get('content-type');
+        let data;
+
+        if (contentType && contentType.includes('application/json')) {
+            data = await response.json();
+        } else {
+            data = await response.text();
+        }
+
+        return {
+            success: response.ok,
+            status: response.status,
+            statusText: response.statusText,
+            data: data
+        };
+    } catch (error) {
+        console.error('[X4 SW] Fetch error:', error);
+        return {
+            success: false,
+            error: error.message
+        };
+    }
+}
 
 /**
  * Handle download article request (generate EPUB and download locally)
