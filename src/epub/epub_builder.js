@@ -19,11 +19,31 @@ const EpubBuilder = {
         const zip = new JSZip();
         const uuid = this.generateUuid();
 
+        let coverMediaType = null;
+        /*
+        // Cover disabled for X4 compatibility
+        if (article.coverUrl) {
+            try {
+                console.log('[EpubBuilder] Fetching cover:', article.coverUrl);
+                const response = await fetch(article.coverUrl);
+                if (response.ok) {
+                    const blob = await response.blob();
+                    coverMediaType = blob.type || 'image/jpeg'; // Default to jpeg if unknown
+                    // Add to zip
+                    zip.file('OEBPS/images/cover.jpg', blob);
+                }
+            } catch (e) {
+                console.warn('[EpubBuilder] Failed to fetch cover:', e);
+            }
+        }
+        */
+
         const metadata = {
             title: article.title,
             author: article.author,
             date: article.date,
-            uuid: uuid
+            uuid: uuid,
+            coverMediaType
         };
 
         // Add mimetype file (must be first and uncompressed)
@@ -61,23 +81,34 @@ const EpubBuilder = {
     generateFilename(article) {
         const parts = [];
 
-        // Add author handle if available
+        // 1. Title (First)
+        const safeTitle = Sanitizer.sanitizeFilename(article.title, 50);
+        if (safeTitle) {
+            parts.push(safeTitle);
+        } else {
+            parts.push('Untitled');
+        }
+
+        // 2. Author
         if (article.author) {
-            const cleanAuthor = article.author.replace(/^@/, '').replace(/[^a-zA-Z0-9_]/g, '');
-            if (cleanAuthor) {
-                parts.push('@' + cleanAuthor);
+            const safeAuthor = Sanitizer.sanitizeFilename(article.author, 30);
+            if (safeAuthor) parts.push(safeAuthor);
+        }
+
+        // 3. Source (Domain)
+        if (article.sourceUrl) {
+            try {
+                const hostname = new URL(article.sourceUrl).hostname;
+                const source = hostname.replace(/^www\./, '');
+                parts.push(source);
+            } catch (e) {
+                // ignore invalid url
             }
         }
 
-        // Add date (prefer extracted date, fallback to today)
+        // 4. Date (Last)
         const date = article.date || new Date().toISOString().split('T')[0];
         parts.push(date);
-
-        // Add sanitized title (first words)
-        const safeTitle = Sanitizer.sanitizeFilename(article.title, 40);
-        if (safeTitle) {
-            parts.push(safeTitle);
-        }
 
         return parts.join(' - ') + '.epub';
     },

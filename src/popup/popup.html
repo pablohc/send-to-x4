@@ -85,19 +85,60 @@
           <span>📁 send-to-x4/</span>
           <span id="file-count" class="file-count">0 files</span>
         </div>
+        <div class="file-controls">
+          <label for="sort-order" class="sort-label">Sort by:</label>
+          <select id="sort-order" class="sort-select">
+            <option value="newest">Newest First</option>
+            <option value="oldest">Oldest First</option>
+            <option value="name-asc">Name (A-Z)</option>
+            <option value="name-desc">Name (Z-A)</option>
+          </select>
+        </div>
         <ul id="file-list-items" class="file-items">
           <!-- Files will be inserted here -->
         </ul>
       </div>
     </section>
 
+    <!-- Divider -->
+    <div class="divider"></div>
+
+    <!-- Settings Section -->
+    <section id="settings-section" class="section">
+      <div id="settings-header" class="section-header clickable">
+        <span class="section-icon">⚙️</span>
+        <span class="section-title">Settings</span>
+        <span id="settings-toggle-icon" class="toggle-icon">▼</span>
+      </div>
+      <div id="settings-content" class="settings-content collapsed">
+        <div class="settings-sub-option">
+          <label class="input-label" for="firmware-type">Firmware Type</label>
+          <select id="firmware-type" class="settings-input">
+            <option value="stock">Stock Firmware (Official)</option>
+            <option value="crosspoint">CrossPoint Firmware</option>
+          </select>
+        </div>
+
+        <div id="device-ip-container" class="settings-sub-option">
+          <label class="input-label" for="device-ip">Device IP Address</label>
+          <div class="input-group">
+            <input type="text" id="device-ip" class="settings-input" placeholder="192.168.3.3" value="192.168.3.3">
+            <button id="connect-btn" class="icon-btn" title="Save & Connect">
+              <span class="btn-icon">🔄</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- Footer -->
     <footer class="popup-footer">
-      <a href="https://github.com/Xatpy/send-to-x4" target="_blank" class="footer-link">v1.0.0</a>
+      <a href="https://github.com/Xatpy/send-to-x4" target="_blank" class="footer-link">v1.1.0</a>
     </footer>
   </div>
 
-  <script src="popup.js"></script>
+  <script src="../utils/settings.js"></script>
+  <script type="module" src="modules/main.js"></script>
 </body>
 
 </html>

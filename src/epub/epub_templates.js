@@ -20,15 +20,24 @@ const EpubTemplates = {
 
   /**
    * Generate content.opf
-   * @param {Object} metadata - { title, author, date, uuid }
+   * @param {Object} metadata - { title, author, date, uuid, coverMediaType }
    */
   contentOpf(metadata) {
-    const { title, author, date, uuid } = metadata;
+    const { title, author, date, uuid, coverMediaType } = metadata;
     const creatorLine = author
       ? `    <dc:creator>${this.escapeXml(author)}</dc:creator>`
       : '';
     const dateLine = date
       ? `    <dc:date>${this.escapeXml(date)}</dc:date>`
+      : '';
+
+    // Cover metadata
+    const coverMeta = coverMediaType
+      ? `    <meta name="cover" content="cover-image" />`
+      : '';
+
+    const coverItem = coverMediaType
+      ? `    <item id="cover-image" href="images/cover.jpg" media-type="${coverMediaType}" properties="cover-image"/>`
       : '';
 
     return `<?xml version="1.0" encoding="UTF-8"?>
@@ -37,12 +46,14 @@ const EpubTemplates = {
     <dc:title>${this.escapeXml(title)}</dc:title>
 ${creatorLine}
 ${dateLine}
+${coverMeta}
     <dc:identifier id="bookid">urn:uuid:${uuid}</dc:identifier>
     <dc:language>en</dc:language>
   </metadata>
   <manifest>
     <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
     <item id="content" href="content.xhtml" media-type="application/xhtml+xml"/>
+${coverItem}
   </manifest>
   <spine toc="ncx">
     <itemref idref="content"/>
@@ -95,6 +106,9 @@ ${dateLine}
       ? `<p class="meta">${metaParts.join(' • ')}</p>`
       : '';
 
+    // Convert HTML body to XHTML (properly close self-closing tags)
+    const xhtmlBody = this.htmlToXhtml(body);
+
     return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
@@ -138,7 +152,7 @@ ${dateLine}
   <h1>${this.escapeXml(title)}</h1>
   ${metaLine}
   <div class="content">
-    ${body}
+    ${xhtmlBody}
   </div>
 </body>
 </html>`;
@@ -146,7 +160,7 @@ ${dateLine}
 
   /**
    * Escape XML special characters
-   * @param {string} text 
+   * @param {string} text
    */
   escapeXml(text) {
     if (!text) return '';
@@ -158,5 +172,30 @@ ${dateLine}
       "'": '&apos;'
     };
     return String(text).replace(/[&<>"']/g, m => map[m]);
+  },
+
+  /**
+   * Convert HTML to XHTML by properly closing self-closing tags
+   * @param {string} html
+   */
+  htmlToXhtml(html) {
+    if (!html) return '';
+
+    // List of void/self-closing elements in HTML that must be self-closed in XHTML
+    const voidElements = [
+      'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
+      'link', 'meta', 'param', 'source', 'track', 'wbr'
+    ];
+
+    // Pattern to match void elements that are not already self-closed
+    // Matches: <tag ...> but not <tag ... /> or <tag .../>
+    const pattern = new RegExp(
+      `<(${voidElements.join('|')})([^>]*?)(?<!/)>`,
+      'gi'
+    );
+
+    // Replace with self-closing version
+    // Also ensures we don't double-close if the regex is too greedy, but (?<!/) handles the check.
+    return html.replace(pattern, '<$1$2 />');
   }
 };
