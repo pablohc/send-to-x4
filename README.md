@@ -24,7 +24,7 @@ It is designed for people who:
 - want distraction-free, offline reading
 - don't want accounts, sync services, or cloud storage
 
-![Send to X4 Demo](media/demo.gif)
+![Send to X4 Demo](media/send-to-x4-1_1_0-crosspoint.gif)
 
 ---
 
@@ -152,3 +152,12 @@ It is designed for people who:
 ## License
 
 MIT
+
+---
+
+## Legacy / History
+
+Archive of previous versions and demonstrations.
+
+### v1.0 (Original Release)
+![Send to X4 v1.0 Demo](media/demo.gif)
