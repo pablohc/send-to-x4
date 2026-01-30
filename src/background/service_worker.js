@@ -111,6 +111,11 @@ async function handleSendArticle(messageData, sender, sendResponse) {
         const uploader = settings.useCrosspointFirmware ? CrossPointUpload : X4UploadTab;
         const apiName = settings.useCrosspointFirmware ? 'CrossPoint' : 'standard X4';
 
+        if (settings.useCrosspointFirmware && settings.crosspointIp) {
+            console.log('[X4 SW] Configuring CrossPoint IP:', settings.crosspointIp);
+            CrossPointUpload.setIp(settings.crosspointIp);
+        }
+
         // Step 3: Try direct upload to X4 (no reachability check - just try it)
         if (tabId) await sendStatusUpdate(tabId, 'uploading', 'Sending to X4...');
         console.log(`[X4 SW] Attempting direct upload using ${apiName} API...`);
@@ -122,7 +127,7 @@ async function handleSendArticle(messageData, sender, sendResponse) {
             console.log('[X4 SW] Upload successful!');
             sendResponse({
                 success: true,
-                message: '✅ Sent to X4!'
+                message: 'Sent to X4!'
             });
             return;
         }

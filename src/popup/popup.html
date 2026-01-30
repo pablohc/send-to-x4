@@ -105,7 +105,18 @@
           <input type="checkbox" id="crosspoint-firmware-checkbox">
           <span>X4 is using CrossPoint firmware</span>
         </label>
-        <p class="hint settings-hint">Enable this if your X4 is running CrossPoint firmware (changes IP to 192.168.4.1)</p>
+        <p class="hint settings-hint">Enable this if your X4 is running CrossPoint firmware</p>
+
+        <div id="crosspoint-ip-container" class="settings-sub-option">
+          <label class="input-label" for="crosspoint-ip">Device IP Address</label>
+          <div class="input-group">
+            <input type="text" id="crosspoint-ip" class="settings-input" placeholder="192.168.1.224"
+              value="192.168.1.224">
+            <button id="connect-btn" class="icon-btn" title="Save & Connect">
+              <span class="btn-icon">🔄</span>
+            </button>
+          </div>
+        </div>
       </div>
     </section>
 

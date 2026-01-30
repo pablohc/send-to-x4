@@ -12,8 +12,8 @@ body {
     line-height: 1.5;
     color: #e4e4e7;
     background: #18181b;
-    min-width: 320px;
-    max-width: 320px;
+    min-width: 400px;
+    max-width: 400px;
 }
 
 .popup-container {
@@ -448,6 +448,92 @@ body {
     border-radius: 3px;
 }
 
-::-webkit-scrollbar-thumb:hover {
-    background: #52525b;
+/* Sub-settings */
+.settings-sub-option {
+    margin-top: 8px;
+    padding: 10px;
+    background: #27272a;
+    border-radius: 8px;
+}
+
+.input-label {
+    display: block;
+    font-size: 11px;
+    color: #a1a1aa;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 500;
+}
+
+.input-group {
+    display: flex;
+    gap: 8px;
+}
+
+.settings-input {
+    flex: 1;
+    background: #18181b;
+    border: 1px solid #3f3f46;
+    border-radius: 6px;
+    padding: 8px 10px;
+    color: #e4e4e7;
+    font-size: 13px;
+    font-family: inherit;
+    transition: all 0.2s ease;
+}
+
+.settings-input:focus {
+    outline: none;
+    border-color: #7c3aed;
+    box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.2);
+}
+
+.settings-input::placeholder {
+    color: #52525b;
+}
+
+.icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    padding: 0;
+    border: 1px solid #3f3f46;
+    border-radius: 6px;
+    background: #27272a;
+    color: #a1a1aa;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.icon-btn:hover {
+    background: #3f3f46;
+    color: #e4e4e7;
+    border-color: #52525b;
+}
+
+.icon-btn:active {
+    transform: translateY(1px);
+}
+
+.icon-btn.success {
+    background: #059669;
+    border-color: #059669;
+    color: white;
+}
+
+.icon-btn.error {
+    background: #dc2626;
+    border-color: #dc2626;
+    color: white;
+}
+
+.icon-btn .btn-spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
 }
