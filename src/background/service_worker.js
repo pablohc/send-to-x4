@@ -3,22 +3,36 @@
  * Handles EPUB generation, X4 upload, and download fallback
  */
 
+// Cross-browser compatibility
+// Cross-browser compatibility
+// browserAPI is defined in settings.js, which is loaded before this script in manifest.json
+// const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
+
 // Import required modules (paths relative to service worker location in src/background/)
-importScripts(
-    '../epub/jszip.min.js',
-    '../utils/logger.js',
-    '../utils/sanitize.js',
-    '../epub/epub_templates.js',
-    '../epub/epub_builder.js',
-    '../upload/x4_upload_tab.js',
-    '../upload/crosspoint_upload.js',
-    '../utils/settings.js'
-);
+// Import required modules
+// Note: In Firefox 'scripts' (Background Page), these are loaded via manifest.json.
+// In Chrome 'service_worker', importScripts works and is required.
+if (typeof importScripts === 'function') {
+    try {
+        importScripts(
+            '../epub/jszip.min.js',
+            '../utils/logger.js',
+            '../utils/sanitize.js',
+            '../epub/epub_templates.js',
+            '../epub/epub_builder.js',
+            '../upload/x4_upload_tab.js',
+            '../upload/crosspoint_upload.js',
+            '../utils/settings.js'
+        );
+    } catch (e) {
+        console.error('[X4 SW] importScripts failed:', e);
+    }
+}
 
 console.log('[X4 Service Worker] Initialized');
 
 // Message handler
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+browserAPI.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'X4_SEND_ARTICLE') {
         handleSendArticle(message, sender, sendResponse);
         return true; // Keep channel open for async response
@@ -38,7 +52,108 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             }));
         return true;
     }
+
+    if (message.type === 'X4_FETCH') {
+        handleFetch(message.payload)
+            .then(result => sendResponse(result))
+            .catch(error => sendResponse({
+                success: false,
+                error: error.message
+            }));
+        return true;
+    }
 });
+
+/**
+ * Handle fetch proxy (to bypass CORS/Mixed Content in popup)
+ */
+async function handleFetch(payload) {
+    const { url, options } = payload;
+    console.log('[X4 SW] Proxy fetch:', url, options?.method || 'GET');
+
+    // Firefox Fallback: Use XMLHttpRequest to bypass potential Mixed Content/Fetch quirks
+    if (typeof XMLHttpRequest !== 'undefined') {
+        console.log('[X4 SW] Using XMLHttpRequest (Firefox compat mode)');
+        return new Promise((resolve) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open(options?.method || 'GET', url, true);
+
+            // Set headers
+            if (options?.headers) {
+                for (const [key, value] of Object.entries(options.headers)) {
+                    xhr.setRequestHeader(key, value);
+                }
+            }
+
+            xhr.onload = function () {
+                const success = xhr.status >= 200 && xhr.status < 300;
+                // Parse body logic simplified
+                let data = xhr.responseText;
+                try {
+                    data = JSON.parse(data);
+                } catch (e) {
+                    // Start is not JSON, keep as text
+                }
+
+                resolve({
+                    success: success,
+                    status: xhr.status,
+                    statusText: xhr.statusText,
+                    data: data
+                });
+            };
+
+            xhr.onerror = function () {
+                console.error('[X4 SW] XHR Error');
+                resolve({
+                    success: false,
+                    error: 'Network Request Failed (XHR)'
+                });
+            };
+
+            xhr.ontimeout = function () {
+                resolve({
+                    success: false,
+                    error: 'Timeout'
+                });
+            };
+
+            if (options?.body) {
+                xhr.send(options.body);
+            } else {
+                xhr.send();
+            }
+        });
+    }
+
+    // Chrome / Service Worker: Use fetch
+    try {
+        const response = await fetch(url, options);
+
+        // We need to read the body to send it back
+        const contentType = response.headers.get('content-type');
+        let data;
+
+        if (contentType && contentType.includes('application/json')) {
+            data = await response.json();
+        } else {
+            data = await response.text();
+        }
+
+        return {
+            success: response.ok,
+            status: response.status,
+            statusText: response.statusText,
+            data: data
+        };
+    } catch (error) {
+        console.error('[X4 SW] Fetch error:', error);
+        return {
+            success: false,
+            error: error.message
+        };
+    }
+}
 
 /**
  * Handle download article request (generate EPUB and download locally)
@@ -76,7 +191,7 @@ async function handleDownloadArticle(article, sendResponse) {
 async function sendStatusUpdate(sender, status, message) {
     try {
         // Send to runtime (reaches popup)
-        await chrome.runtime.sendMessage({
+        await browserAPI.runtime.sendMessage({
             type: 'X4_STATUS_UPDATE',
             status: status,
             message: message
@@ -178,29 +293,56 @@ async function handleSendArticle(messageData, sender, sendResponse) {
 
 /**
  * Download EPUB as fallback
- * Service workers can't use URL.createObjectURL, so we use data URL
+ * Chrome MV3 service workers: Use data URL (can't use createObjectURL)
+ * Firefox MV3 service workers: Use Blob URL (data URLs blocked for security)
  */
 async function downloadEpubFallback(arrayBuffer, filename) {
     try {
         console.log('[X4 SW] Triggering download fallback...');
 
-        // Convert ArrayBuffer to base64 data URL
-        const bytes = new Uint8Array(arrayBuffer);
-        let binary = '';
-        for (let i = 0; i < bytes.length; i++) {
-            binary += String.fromCharCode(bytes[i]);
-        }
-        const base64 = btoa(binary);
-        const dataUrl = `data:application/epub+zip;base64,${base64}`;
+        // Detect if we're in Firefox (has 'browser' namespace) or Chrome
+        const isFirefox = typeof browser !== 'undefined' && typeof browser.runtime !== 'undefined';
+        console.log('[X4 SW] Browser detected:', isFirefox ? 'Firefox' : 'Chrome');
 
-        // Trigger download using data URL
-        await chrome.downloads.download({
-            url: dataUrl,
+        let downloadUrl;
+
+        if (isFirefox) {
+            // Firefox: Use Blob URL (works in MV3 service workers)
+            console.log('[X4 SW] Using Blob URL for Firefox...');
+            const blob = new Blob([arrayBuffer], { type: 'application/epub+zip' });
+            downloadUrl = URL.createObjectURL(blob);
+            console.log('[X4 SW] Blob URL created:', downloadUrl);
+        } else {
+            // Chrome: Use data URL (works in service workers)
+            console.log('[X4 SW] Converting to data URL for Chrome...');
+            const bytes = new Uint8Array(arrayBuffer);
+            let binary = '';
+            for (let i = 0; i < bytes.length; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            const base64 = btoa(binary);
+            downloadUrl = `data:application/epub+zip;base64,${base64}`;
+            console.log('[X4 SW] Data URL length:', downloadUrl.length);
+        }
+
+        // Trigger download
+        console.log('[X4 SW] Calling browserAPI.downloads.download...');
+        const downloadId = await browserAPI.downloads.download({
+            url: downloadUrl,
             filename: filename,
             saveAs: false
         });
 
-        console.log('[X4 SW] Download triggered:', filename);
+        console.log('[X4 SW] Download triggered successfully, ID:', downloadId);
+
+        // Clean up Blob URL after download starts (Firefox only)
+        if (isFirefox) {
+            // Give the download a moment to start before revoking
+            setTimeout(() => {
+                URL.revokeObjectURL(downloadUrl);
+                console.log('[X4 SW] Blob URL revoked');
+            }, 1000);
+        }
     } catch (error) {
         console.error('[X4 SW] Download failed:', error);
         throw error;

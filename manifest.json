@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Send to X4",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "author": "Xatpy",
   "description": "Send articles from any website to Xteink X4 e-ink reader as EPUB",
   "permissions": [
@@ -18,7 +18,18 @@
     "<all_urls>"
   ],
   "background": {
-    "service_worker": "src/background/service_worker.js"
+    "service_worker": "src/background/service_worker.js",
+    "scripts": [
+      "src/epub/jszip.min.js",
+      "src/utils/logger.js",
+      "src/utils/sanitize.js",
+      "src/epub/epub_templates.js",
+      "src/epub/epub_builder.js",
+      "src/upload/x4_upload_tab.js",
+      "src/upload/crosspoint_upload.js",
+      "src/utils/settings.js",
+      "src/background/service_worker.js"
+    ]
   },
   "content_scripts": [
     {
@@ -50,5 +61,19 @@
     "16": "assets/icon16.png",
     "48": "assets/icon48.png",
     "128": "assets/icon128.png"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "send-to-x4@xatpy.dev",
+      "strict_min_version": "128.0",
+      "data_collection_permissions": {
+        "required": [
+          "none"
+        ]
+      }
+    }
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src http: https: ws: wss: * data: blob: filesystem:;"
   }
 }

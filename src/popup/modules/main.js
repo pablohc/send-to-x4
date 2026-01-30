@@ -2,6 +2,9 @@ import { UIManager } from './ui_manager.js';
 import { FileManager } from './file_manager.js';
 import { ArticleManager } from './article_manager.js';
 
+// Cross-browser compatibility
+const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
+
 // Global settings object from settings.js (loaded via script tag)
 // We assume Settings is available on window/global scope
 
@@ -30,7 +33,7 @@ class PopupController {
         });
 
         // Check for updates
-        chrome.runtime.onMessage.addListener((message) => {
+        browserAPI.runtime.onMessage.addListener((message) => {
             if (message.type === 'X4_STATUS_UPDATE') {
                 console.log('[Popup Controller] Status update:', message);
                 // Map status to button state or log
@@ -213,7 +216,7 @@ class PopupController {
 
         try {
             // Wrap sendMessage in a timeout promise
-            const sendMessagePromise = chrome.runtime.sendMessage({
+            const sendMessagePromise = browserAPI.runtime.sendMessage({
                 type: 'X4_SEND_ARTICLE',
                 payload: {
                     kind: 'generic_article',
@@ -256,7 +259,7 @@ class PopupController {
         this.ui.setDownloadButtonState('downloading');
 
         try {
-            const response = await chrome.runtime.sendMessage({
+            const response = await browserAPI.runtime.sendMessage({
                 type: 'X4_DOWNLOAD_ARTICLE',
                 payload: {
                     kind: 'generic_article',

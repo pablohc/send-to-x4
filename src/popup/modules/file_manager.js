@@ -1,3 +1,6 @@
+// Cross-browser compatibility
+const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
+
 /**
  * File Manager
  * Handles device communication (X4 standard and CrossPoint firmware)
@@ -8,6 +11,41 @@ export class FileManager {
         this.X4_EDIT_URL = 'http://192.168.3.3/edit';
         this.X4_LIST_URL = 'http://192.168.3.3/list';
         this.TARGET_FOLDER = 'send-to-x4';
+    }
+
+    /**
+     * Proxy fetch through background script to avoid CORS/Mixed Content issues
+     * @param {string} url 
+     * @param {Object} options 
+     */
+    async bgFetch(url, options = {}) {
+        // We cannot pass AbortSignal via message, so we omit it.
+        // The background script handles the fetch. We can implement timeout here via race if needed,
+        // but for now let's rely on the background script's fetch.
+        // Actually, we should strip signal from options if present as it's not clonable.
+        const safeOptions = { ...options };
+        delete safeOptions.signal;
+
+        const response = await browserAPI.runtime.sendMessage({
+            type: 'X4_FETCH',
+            payload: {
+                url,
+                options: safeOptions
+            }
+        });
+
+        if (!response.success) {
+            throw new Error(response.error || 'Fetch failed');
+        }
+
+        // Reconstruct a response-like object
+        return {
+            ok: response.success,
+            status: response.status,
+            statusText: response.statusText,
+            json: async () => response.data, // data is already parsed JSON or text
+            text: async () => typeof response.data === 'string' ? response.data : JSON.stringify(response.data)
+        };
     }
 
     /**
@@ -32,9 +70,8 @@ export class FileManager {
 
             console.log('[File Manager] Checking device:', { type: settings.firmwareType, ip, url: listPath });
 
-            const response = await fetch(listPath, {
-                method: 'GET',
-                signal: AbortSignal.timeout(3000)
+            const response = await this.bgFetch(listPath, {
+                method: 'GET'
             });
 
             if (!response.ok) {
@@ -66,12 +103,12 @@ export class FileManager {
 
             if (isCrosspoint) {
                 listUrl = `${baseUrl}/api/files?path=/${this.TARGET_FOLDER}`;
-                const response = await fetch(listUrl);
+                const response = await this.bgFetch(listUrl);
                 const files = await response.json();
                 epubFiles = files.filter(f => !f.isDirectory && f.name.endsWith('.epub'));
             } else {
                 listUrl = `${baseUrl}/list?dir=/${this.TARGET_FOLDER}/`;
-                const response = await fetch(listUrl);
+                const response = await this.bgFetch(listUrl);
                 const files = await response.json();
                 epubFiles = files.filter(f => f.type === 'file' && f.name.endsWith('.epub'));
             }
@@ -134,24 +171,35 @@ export class FileManager {
             const isCrosspoint = settings.firmwareType === 'crosspoint';
             const ip = settings.deviceIp;
             const fullPath = `/${this.TARGET_FOLDER}/${filename}`;
-            const formData = new FormData();
-            formData.append('path', fullPath);
 
-            let response;
+            // Use URLSearchParams instead of FormData for message safety
+            const params = new URLSearchParams();
+            params.append('path', fullPath);
+
+            let url;
             if (isCrosspoint) {
                 // CrossPoint API
-                formData.append('type', 'file');
-                response = await fetch(`http://${ip}/delete`, {
-                    method: 'POST',
-                    body: formData
-                });
+                params.append('type', 'file');
+                url = `http://${ip}/delete`;
             } else {
                 // Standard X4 API
-                response = await fetch(`http://${ip}/edit`, {
-                    method: 'DELETE',
-                    body: formData
-                });
+                url = `http://${ip}/edit`;
+                // Standard firmware deletes via POST to /edit with delete method?
+                // Wait, original code was: method: 'DELETE', body: formData
+                // Does standard firmware accept method DELETE? The fetch options said method: 'DELETE'.
+                // If so, does it accept body? Yes.
+                // We will stick to the same method but change body format.
             }
+
+            const options = {
+                method: isCrosspoint ? 'POST' : 'DELETE',
+                body: params.toString(),
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                }
+            };
+
+            const response = await this.bgFetch(url, options);
 
             if (response.ok) {
                 return true;

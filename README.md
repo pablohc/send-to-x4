@@ -1,8 +1,10 @@
 # Send to X4
 
-A Chrome extension to send long-form articles from the web directly to your **Xteink X4** e-ink reader as clean EPUB files.
+A browser extension to send long-form articles from the web directly to your **Xteink X4** e-ink reader as clean EPUB files.
 
-> Status: **Stable (v1.1.0)** — Tested with Xteink X4
+> Status: **Stable (v1.1.1)** — Tested with Xteink X4
+>
+> Supports: **Chrome** • **Firefox** • **Edge**
 
 
 <p align="center">
@@ -140,6 +142,25 @@ It is designed for people who:
   - Requires manual WiFi switching
   - Works best on long-form, reading-oriented pages
   - Not a read-later service or cloud sync tool
+
+---
+
+## Installation
+
+### Chrome / Edge
+
+1. Open Chrome/Edge and go to `chrome://extensions/` or `edge://extensions/`
+2. Enable **Developer mode** (toggle in the top-right corner)
+3. Click **Load unpacked**
+4. Select the `send-to-x4` folder
+5. Pin the extension for easy access
+
+### Firefox Desktop
+
+1. Open Firefox and go to `about:debugging#/runtime/this-firefox`
+2. Click **Load Temporary Add-on**
+3. Navigate to the `send-to-x4` folder and select `manifest.json`
+4. The extension will remain loaded until you restart Firefox
 
 ---
 
