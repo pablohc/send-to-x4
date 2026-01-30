@@ -26,23 +26,26 @@ export class UIManager {
             deviceFiles: document.getElementById('device-files'),
             fileCount: document.getElementById('file-count'),
             fileListItems: document.getElementById('file-list-items'),
-            crosspointCheckbox: document.getElementById('crosspoint-firmware-checkbox'),
-            crosspointIpContainer: document.getElementById('crosspoint-ip-container'),
-            crosspointIpInput: document.getElementById('crosspoint-ip'),
+            fileListItems: document.getElementById('file-list-items'),
+            firmwareTypeSelect: document.getElementById('firmware-type'),
+            deviceIpContainer: document.getElementById('device-ip-container'),
+            deviceIpInput: document.getElementById('device-ip'),
             connectBtn: document.getElementById('connect-btn'),
             settingsHeader: document.getElementById('settings-header'),
             settingsContent: document.getElementById('settings-content'),
-            settingsToggleIcon: document.getElementById('settings-toggle-icon')
+            settingsToggleIcon: document.getElementById('settings-toggle-icon'),
+            sortSelect: document.getElementById('sort-order')
         };
     }
 
     setupListeners(handlers) {
         if (handlers.onSend) this.elements.sendBtn.addEventListener('click', handlers.onSend);
         if (handlers.onDownload) this.elements.downloadBtn.addEventListener('click', handlers.onDownload);
-        if (handlers.onSettingsChange) this.elements.crosspointCheckbox.addEventListener('change', handlers.onSettingsChange);
-        if (handlers.onIpChange) this.elements.crosspointIpInput.addEventListener('change', handlers.onIpChange);
+        if (handlers.onSettingsChange) this.elements.firmwareTypeSelect.addEventListener('change', handlers.onSettingsChange);
+        if (handlers.onIpChange) this.elements.deviceIpInput.addEventListener('change', handlers.onIpChange);
         if (handlers.onConnect) this.elements.connectBtn.addEventListener('click', handlers.onConnect);
         if (handlers.onSettingsToggle) this.elements.settingsHeader.addEventListener('click', handlers.onSettingsToggle);
+        if (handlers.onSortChange) this.elements.sortSelect.addEventListener('change', handlers.onSortChange);
     }
 
     // --- Settings Panel ---
@@ -113,14 +116,14 @@ export class UIManager {
         if (files.length === 0) {
             this.elements.fileListItems.innerHTML = '<li class="empty"><span class="file-name">No files yet</span></li>';
         } else {
-            const recentFiles = files.slice(-5).reverse();
-            this.elements.fileListItems.innerHTML = recentFiles
+            // No slicing - show all files (CSS handles scroll)
+            this.elements.fileListItems.innerHTML = files
                 .map(f => {
                     const escapedName = f.name.replace(/"/g, '&quot;');
                     return `<li data-filename="${escapedName}">
-                        <button class="delete-btn" title="Delete file">🗑️</button>
-                        <span class="file-name" title="${escapedName}">${f.name}</span>
-                    </li>`;
+                    <span class="file-name" title="${escapedName}">${f.name}</span>
+                    <button class="delete-btn" title="Delete file">🗑️</button>
+                </li>`;
                 })
                 .join('');
 
@@ -144,15 +147,23 @@ export class UIManager {
 
     // --- Settings UI ---
 
+    // --- Settings UI ---
+
     updateSettingsUI(settings) {
-        this.elements.crosspointCheckbox.checked = settings.useCrosspointFirmware;
-        this.elements.crosspointIpInput.value = settings.crosspointIp;
+        this.elements.firmwareTypeSelect.value = settings.firmwareType;
+        this.elements.deviceIpInput.value = settings.deviceIp;
+        // Optional: Update placeholder based on firmware type (UX improvement)
+        if (settings.firmwareType === 'crosspoint') {
+            this.elements.deviceIpInput.placeholder = '192.168.4.1';
+        } else {
+            this.elements.deviceIpInput.placeholder = '192.168.3.3';
+        }
     }
 
     getSettingsFromUI() {
         return {
-            useCrosspointFirmware: this.elements.crosspointCheckbox.checked,
-            crosspointIp: this.elements.crosspointIpInput.value.trim()
+            firmwareType: this.elements.firmwareTypeSelect.value,
+            deviceIp: this.elements.deviceIpInput.value.trim()
         };
     }
 

@@ -15,10 +15,10 @@ const CrossPointUpload = {
     // MKDIR_ENDPOINT: 'http://192.168.4.1/mkdir',
     // DELETE_ENDPOINT: 'http://192.168.4.1/delete',
     // Default IP
-    ip: '192.168.1.224',
+    ip: '192.168.4.1',
 
     setIp(ip) {
-        this.ip = ip || '192.168.1.224';
+        this.ip = ip || '192.168.4.1';
     },
 
     get uploadEndpoint() { return `http://${this.ip}/upload`; },
@@ -164,26 +164,37 @@ const CrossPointUpload = {
             // Add query parameter for path
             const uploadUrl = `${this.uploadEndpoint}?path=${encodeURIComponent(path)}`;
 
-            console.log('[CrossPoint Upload] Sending POST to', uploadUrl);
+            // Create timeout controller (30s)
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-            const response = await fetch(uploadUrl, {
-                method: 'POST',
-                body: formData
-            });
+            console.log('[CrossPoint Upload] Sending POST with 30s timeout...');
 
-            console.log('[CrossPoint Upload] Response status:', response.status);
+            try {
+                const response = await fetch(uploadUrl, {
+                    method: 'POST',
+                    body: formData,
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
 
-            if (response.ok) {
-                const responseText = await response.text();
-                console.log('[CrossPoint Upload] Success! Response:', responseText);
-                return { success: true };
-            } else {
-                const errorText = await response.text();
-                console.error('[CrossPoint Upload] Error response:', errorText);
-                return {
-                    success: false,
-                    error: `Upload failed with status ${response.status}`
-                };
+                console.log('[CrossPoint Upload] Response status:', response.status);
+
+                if (response.ok) {
+                    const responseText = await response.text();
+                    console.log('[CrossPoint Upload] Success! Response:', responseText);
+                    return { success: true };
+                } else {
+                    const errorText = await response.text();
+                    console.error('[CrossPoint Upload] Error response:', errorText);
+                    return {
+                        success: false,
+                        error: `Upload failed with status ${response.status}`
+                    };
+                }
+            } catch (error) {
+                clearTimeout(timeoutId);
+                throw error;
             }
 
         } catch (error) {

@@ -17,14 +17,20 @@ export class FileManager {
      */
     async checkDevice(settings) {
         try {
-            const useCrosspoint = settings.useCrosspointFirmware;
-            const listUrl = useCrosspoint
-                ? `http://${settings.crosspointIp}/api/files`
-                : this.X4_LIST_URL;
+            const isCrosspoint = settings.firmwareType === 'crosspoint';
+            const ip = settings.deviceIp;
 
-            const listPath = useCrosspoint ? `${listUrl}?path=/` : `${listUrl}?dir=/`;
+            // Construct URL based on firmware type
+            const baseUrl = `http://${ip}`;
 
-            console.log('[File Manager] Checking device with', useCrosspoint ? 'CrossPoint' : 'standard', 'API');
+            // CrossPoint uses /api/files, Stock uses /list
+            const listUrl = isCrosspoint
+                ? `${baseUrl}/api/files`
+                : `${baseUrl}/list`;
+
+            const listPath = isCrosspoint ? `${listUrl}?path=/` : `${listUrl}?dir=/`;
+
+            console.log('[File Manager] Checking device:', { type: settings.firmwareType, ip, url: listPath });
 
             const response = await fetch(listPath, {
                 method: 'GET',
@@ -47,29 +53,72 @@ export class FileManager {
     /**
      * Load files from the target folder
      * @param {Object} settings 
+     * @param {string} sortOrder 'newest', 'oldest', 'name-asc', 'name-desc'
      * @returns {Promise<Array>}
      */
-    async loadFolderFiles(settings) {
+    async loadFolderFiles(settings, sortOrder = 'newest') {
         try {
-            const useCrosspoint = settings.useCrosspointFirmware;
+            const isCrosspoint = settings.firmwareType === 'crosspoint';
+            const ip = settings.deviceIp;
+            const baseUrl = `http://${ip}`;
+
             let listUrl, epubFiles;
 
-            if (useCrosspoint) {
-                listUrl = `http://${settings.crosspointIp}/api/files?path=/${this.TARGET_FOLDER}`;
+            if (isCrosspoint) {
+                listUrl = `${baseUrl}/api/files?path=/${this.TARGET_FOLDER}`;
                 const response = await fetch(listUrl);
                 const files = await response.json();
                 epubFiles = files.filter(f => !f.isDirectory && f.name.endsWith('.epub'));
             } else {
-                listUrl = `${this.X4_LIST_URL}?dir=/${this.TARGET_FOLDER}/`;
+                listUrl = `${baseUrl}/list?dir=/${this.TARGET_FOLDER}/`;
                 const response = await fetch(listUrl);
                 const files = await response.json();
                 epubFiles = files.filter(f => f.type === 'file' && f.name.endsWith('.epub'));
             }
 
+            // Enrich with parsed date for sorting
+            epubFiles = epubFiles.map(f => ({
+                ...f,
+                parsedDate: this.parseDateFromFilename(f.name)
+            }));
+
+            // Sort
+            epubFiles.sort((a, b) => {
+                switch (sortOrder) {
+                    case 'newest':
+                        return b.parsedDate - a.parsedDate;
+                    case 'oldest':
+                        return a.parsedDate - b.parsedDate;
+                    case 'name-asc':
+                        return a.name.localeCompare(b.name);
+                    case 'name-desc':
+                        return b.name.localeCompare(a.name);
+                    default:
+                        return 0;
+                }
+            });
+
             return epubFiles;
         } catch (error) {
             console.error('[File Manager] Error loading folder:', error);
             return []; // Return empty on error (folder might not exist)
+        }
+    }
+
+    /**
+     * Parse date from filename format: "Author - YYYY-MM-DD - Title.epub"
+     * Returns timestamp (number)
+     */
+    parseDateFromFilename(filename) {
+        try {
+            // Match YYYY-MM-DD pattern
+            const match = filename.match(/(\d{4}-\d{2}-\d{2})/);
+            if (match) {
+                return new Date(match[1]).getTime();
+            }
+            return 0; // No date found, treat as very old
+        } catch (e) {
+            return 0;
         }
     }
 
@@ -82,22 +131,23 @@ export class FileManager {
     async deleteFile(filename, settings) {
         try {
             console.log('[File Manager] Deleting file:', filename);
-            const useCrosspoint = settings.useCrosspointFirmware;
+            const isCrosspoint = settings.firmwareType === 'crosspoint';
+            const ip = settings.deviceIp;
             const fullPath = `/${this.TARGET_FOLDER}/${filename}`;
             const formData = new FormData();
             formData.append('path', fullPath);
 
             let response;
-            if (useCrosspoint) {
+            if (isCrosspoint) {
                 // CrossPoint API
                 formData.append('type', 'file');
-                response = await fetch(`http://${settings.crosspointIp}/delete`, {
+                response = await fetch(`http://${ip}/delete`, {
                     method: 'POST',
                     body: formData
                 });
             } else {
                 // Standard X4 API
-                response = await fetch(this.X4_EDIT_URL, {
+                response = await fetch(`http://${ip}/edit`, {
                     method: 'DELETE',
                     body: formData
                 });
@@ -116,8 +166,8 @@ export class FileManager {
     }
 
     findTargetFolder(files, settings) {
-        const useCrosspoint = settings.useCrosspointFirmware;
-        if (useCrosspoint) {
+        const isCrosspoint = settings.firmwareType === 'crosspoint';
+        if (isCrosspoint) {
             return files.find(f => f.isDirectory && f.name === this.TARGET_FOLDER);
         } else {
             return files.find(f => f.type === 'dir' && f.name === this.TARGET_FOLDER);

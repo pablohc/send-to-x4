@@ -302,6 +302,37 @@ body {
     border-bottom: 1px solid #3f3f46;
 }
 
+.file-controls {
+    padding: 8px 12px;
+    background: #27272a;
+    border-bottom: 1px solid #3f3f46;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 8px;
+}
+
+.sort-label {
+    color: #a1a1aa;
+    font-size: 11px;
+}
+
+.sort-select {
+    background: #18181b;
+    color: #a1a1aa;
+    border: 1px solid #3f3f46;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 11px;
+    outline: none;
+    cursor: pointer;
+}
+
+.sort-select:hover {
+    border-color: #52525b;
+    color: #e4e4e7;
+}
+
 .file-count {
     color: #71717a;
 }
@@ -351,12 +382,12 @@ body {
     cursor: pointer;
     font-size: 12px;
     transition: all 0.15s ease;
-    opacity: 0;
+    opacity: 1;
+    margin-left: 8px;
+    /* Add spacing */
 }
 
-.file-items li:hover .delete-btn {
-    opacity: 1;
-}
+/* Removed hover opacity rule since it's now always visible */
 
 .file-items li .delete-btn:hover {
     background: #dc2626;

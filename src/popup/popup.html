@@ -85,6 +85,15 @@
           <span>📁 send-to-x4/</span>
           <span id="file-count" class="file-count">0 files</span>
         </div>
+        <div class="file-controls">
+          <label for="sort-order" class="sort-label">Sort by:</label>
+          <select id="sort-order" class="sort-select">
+            <option value="newest">Newest First</option>
+            <option value="oldest">Oldest First</option>
+            <option value="name-asc">Name (A-Z)</option>
+            <option value="name-desc">Name (Z-A)</option>
+          </select>
+        </div>
         <ul id="file-list-items" class="file-items">
           <!-- Files will be inserted here -->
         </ul>
@@ -102,17 +111,18 @@
         <span id="settings-toggle-icon" class="toggle-icon">▼</span>
       </div>
       <div id="settings-content" class="settings-content collapsed">
-        <label class="checkbox-label">
-          <input type="checkbox" id="crosspoint-firmware-checkbox">
-          <span>X4 is using CrossPoint firmware</span>
-        </label>
-        <p class="hint settings-hint">Enable this if your X4 is running CrossPoint firmware</p>
+        <div class="settings-sub-option">
+          <label class="input-label" for="firmware-type">Firmware Type</label>
+          <select id="firmware-type" class="settings-input">
+            <option value="stock">Stock Firmware (Official)</option>
+            <option value="crosspoint">CrossPoint Firmware</option>
+          </select>
+        </div>
 
-        <div id="crosspoint-ip-container" class="settings-sub-option">
-          <label class="input-label" for="crosspoint-ip">Device IP Address</label>
+        <div id="device-ip-container" class="settings-sub-option">
+          <label class="input-label" for="device-ip">Device IP Address</label>
           <div class="input-group">
-            <input type="text" id="crosspoint-ip" class="settings-input" placeholder="192.168.1.224"
-              value="192.168.1.224">
+            <input type="text" id="device-ip" class="settings-input" placeholder="192.168.3.3" value="192.168.3.3">
             <button id="connect-btn" class="icon-btn" title="Save & Connect">
               <span class="btn-icon">🔄</span>
             </button>

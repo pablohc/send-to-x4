@@ -10,7 +10,8 @@ class PopupController {
         this.ui = new UIManager();
         this.fileManager = new FileManager();
         this.articleManager = new ArticleManager();
-        this.settings = { useCrosspointFirmware: false, crosspointIp: '192.168.1.224', settingsPanelOpen: false };
+        this.settings = { firmwareType: 'stock', deviceIp: '192.168.3.3', settingsPanelOpen: false };
+        this.currentSort = 'newest'; // Default sort
     }
 
     async init() {
@@ -24,7 +25,25 @@ class PopupController {
             onSettingsChange: (e) => this.handleSettingsChange(e),
             onIpChange: (e) => this.handleIpChange(e),
             onConnect: () => this.handleConnect(),
-            onSettingsToggle: () => this.handleSettingsToggle()
+            onSettingsToggle: () => this.handleSettingsToggle(),
+            onSortChange: (e) => this.handleSortChange(e)
+        });
+
+        // Check for updates
+        chrome.runtime.onMessage.addListener((message) => {
+            if (message.type === 'X4_STATUS_UPDATE') {
+                console.log('[Popup Controller] Status update:', message);
+                // Map status to button state or log
+                if (message.status === 'generating') {
+                    this.ui.setSendButtonState('loading', 'Generating EPUB...');
+                } else if (message.status === 'uploading') {
+                    this.ui.setSendButtonState('loading', 'Uploading to X4...');
+                } else if (message.status === 'downloading') {
+                    this.ui.setSendButtonState('loading', 'Downloading...');
+                }
+            } else if (message.type === 'X4_DEBUG_LOG') {
+                console.log('[SW Log]', message.message);
+            }
         });
 
         // Run checks in parallel
@@ -38,8 +57,8 @@ class PopupController {
         if (window.Settings) {
             try {
                 const allSettings = await window.Settings.getAll();
-                this.settings.useCrosspointFirmware = allSettings.useCrosspointFirmware;
-                this.settings.crosspointIp = allSettings.crosspointIp;
+                this.settings.firmwareType = allSettings.firmwareType;
+                this.settings.deviceIp = allSettings.deviceIp;
                 this.settings.settingsPanelOpen = allSettings.settingsPanelOpen;
 
                 this.ui.updateSettingsUI(this.settings);
@@ -87,7 +106,7 @@ class PopupController {
         const result = await this.fileManager.checkDevice(this.settings);
 
         if (result.connected) {
-            this.ui.showDeviceConnected(this.settings.useCrosspointFirmware ? this.settings.crosspointIp : '192.168.3.3');
+            this.ui.showDeviceConnected(this.settings.deviceIp);
 
             // Load files
             const files = await this.fileManager.loadFolderFiles(this.settings);
@@ -105,11 +124,19 @@ class PopupController {
     // --- Handlers ---
 
     async handleSettingsChange(event) {
-        const useCrosspoint = event.target.checked;
-        this.settings.useCrosspointFirmware = useCrosspoint;
+        // This is now Firmware Type Change
+        const newFirmwareType = event.target.value;
+        this.settings.firmwareType = newFirmwareType;
 
         if (window.Settings) {
-            await window.Settings.setUseCrosspoint(useCrosspoint);
+            await window.Settings.setFirmwareType(newFirmwareType);
+
+            // Reload settings to get the stored IP for this firmware type
+            const updatedSettings = await window.Settings.getAll();
+            this.settings.deviceIp = updatedSettings.deviceIp;
+
+            // Re-update UI to reflect the correct IP
+            this.ui.updateSettingsUI(this.settings);
         }
 
         // Refresh device
@@ -120,22 +147,29 @@ class PopupController {
         const newIp = event.target.value.trim();
         if (!newIp) return;
 
-        this.settings.crosspointIp = newIp;
+        this.settings.deviceIp = newIp;
 
         if (window.Settings) {
-            await window.Settings.setCrosspointIp(newIp);
+            await window.Settings.setDeviceIp(newIp);
         }
         console.log('[Popup Controller] IP saved:', newIp);
     }
 
     async handleConnect() {
         // Force save current input value first
-        const currentInput = this.ui.getSettingsFromUI().crosspointIp;
-        if (currentInput && currentInput !== this.settings.crosspointIp) {
+        const currentInput = this.ui.getSettingsFromUI().deviceIp;
+        if (currentInput && currentInput !== this.settings.deviceIp) {
             await this.handleIpChange({ target: { value: currentInput } });
         }
 
         await this.checkDevice(true);
+    }
+
+    async handleSortChange(event) {
+        this.currentSort = event.target.value;
+        // Reload files to apply sort
+        const files = await this.fileManager.loadFolderFiles(this.settings, this.currentSort);
+        this.ui.showFileList(files, (filename, li) => this.handleDelete(filename, li));
     }
 
     async handleSettingsToggle() {
@@ -178,17 +212,25 @@ class PopupController {
         this.ui.setSendButtonState('sending');
 
         try {
-            const response = await chrome.runtime.sendMessage({
+            // Wrap sendMessage in a timeout promise
+            const sendMessagePromise = chrome.runtime.sendMessage({
                 type: 'X4_SEND_ARTICLE',
                 payload: {
                     kind: 'generic_article',
                     ...article
                 },
                 settings: {
-                    useCrosspointFirmware: this.settings.useCrosspointFirmware,
-                    crosspointIp: this.settings.crosspointIp
+                    firmwareType: this.settings.firmwareType,
+                    deviceIp: this.settings.deviceIp
                 }
             });
+
+            // 60s timeout for the whole process (generation + upload)
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Operation timed out (60s)')), 60000);
+            });
+
+            const response = await Promise.race([sendMessagePromise, timeoutPromise]);
 
             if (response && response.success) {
                 this.ui.setSendButtonState('success', response.message);
