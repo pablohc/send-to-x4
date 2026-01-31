@@ -64,7 +64,7 @@
   },
   "browser_specific_settings": {
     "gecko": {
-      "id": "send-to-x4@xatpy.dev",
+      "id": "send-to-x4-signed@xatpy.dev",
       "strict_min_version": "128.0",
       "data_collection_permissions": {
         "required": [
